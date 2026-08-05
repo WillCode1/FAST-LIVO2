@@ -1,26 +1,21 @@
 common:
-  img_topic: "/alphasense/cam0/image_raw"
-  lid_topic: "/hesai/pandar"
-  imu_topic: "/alphasense/imu"
-  img_en: 1
+  img_topic: "/cam5/image_raw"
+  lid_topic: "/points_raw"
+  imu_topic: "/imu_raw"
+  img_en: 0
   ros_driver_bug_fix: false
 
 extrin_calib:
-  # Hilti-2022
-  extrinsic_T: [-0.001, -0.00855, 0.055] 
-  extrinsic_R: [0, -1, 0, -1, 0, 0, 0, 0, -1]
-  
-  # Hilti-2023
-  # extrinsic_T: [-0.006730146149038548, -0.006897049862999071, 0.049898628062256645] 
-  # extrinsic_R: [0.006609639848469365, -0.9999773650294649, 0.0012578115132016717, 
-  #               -0.9999762249571927, -0.006612093869054189, -0.0019569708811106104, 
-  #               0.001965243352927244, -0.0012448467359610184, -0.9999972940839232]
-
-  # Hilti
-  Rcl: [ -0.99992641, -0.01009117,  0.00673353,
-         -0.00670937, -0.00242611, -0.99997455,
-          0.01010725, -0.99994614,  0.00235823 ]
-  Pcl: [ -0.04639005, -0.05981361, 0.06821493 ]
+  # lidar -> imu = lidar->base * base->imu
+  extrinsic_T: [ 0.112, 0.176, -0.247 ]
+  extrinsic_R: [ -0.01226931,  0.99982505, -0.01411883, 
+                 -0.99992053, -0.01230894, -0.00272393, 
+                 -0.00289724,  0.01408428,  0.99989661 ]
+  # lidar -> cam = lidar->imu * imu->cam
+  Rcl: [ -0.999926,  -0.00670802, 0.0101073,
+         -0.0100912, -0.00242564, -0.999946,
+          0.00673218,-0.999975, 0.00235777 ]
+  Pcl: [ -0.0549762, 0.0675401, -0.0520599 ]
 
 time_offset:
   imu_time_offset: 0.0
@@ -28,13 +23,13 @@ time_offset:
   exposure_time_init: 0.0
 
 preprocess:
-  hilti_en: true
+  hilti_en: false
   point_filter_num: 1
   filter_size_surf: 0.1 # 0.2
-  lidar_type: 5 # HesaiXT32
+  lidar_type: 2
   scan_line: 32
   blind: 0.6 # 0.1 0.3
- 
+
 vio:
   max_iterations: 5
   outlier_threshold: 500
@@ -65,7 +60,7 @@ lio:
   layer_init_num: [5, 5, 5, 5, 5]
 
 local_map:  
-  map_sliding_en: false
+  map_sliding_en: true
   half_map_size: 100
   sliding_thresh: 8
 
@@ -81,8 +76,8 @@ publish:
   blind_rgb_points: 0.0
 
 evo:
-  seq_name: "exp09_cupola"
-  pose_output_en: true
+  seq_name: "2012-01-08"
+  pose_output_en: false
 
 pcd_save:
   pcd_save_en: false
@@ -98,4 +93,4 @@ image_save:
   interval: 1
 
 lru_config:
-  lru_size: 1000000
+  lru_size: 20000

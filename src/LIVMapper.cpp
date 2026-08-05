@@ -1003,6 +1003,7 @@ bool LIVMapper::SyncPackages(LidarMeasureGroup &meas) {
       break;
     }
 
+    // img1 - pc1_back - pc2_front - img2
     case LIVO: {
       // LIVO模式下，LIO和VIO的更新时间相同，LIO在前，VIO紧随其后。
       // 注意：此处整理的是LIO使用的数据
@@ -1061,7 +1062,7 @@ bool LIVMapper::SyncPackages(LidarMeasureGroup &meas) {
 
       while (!lid_raw_data_buffer_.empty()) {
         if (lid_header_time_buffer_.front() > img_capture_time) break;
-        auto pcl(lid_raw_data_buffer_.front()->points);
+        auto& pcl(lid_raw_data_buffer_.front()->points);
         double frame_header_time(lid_header_time_buffer_.front());
         float max_offs_time_ms = (m.lio_time - frame_header_time) * 1000.0f;
         // 时间小于图像获取时间的点，放入当前帧
