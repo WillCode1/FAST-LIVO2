@@ -32,7 +32,7 @@ Panels:
   - Class: rviz/Time
     Name: Time
     SyncMode: 0
-    SyncSource: surround
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -97,7 +97,7 @@ Visualization Manager:
           Use Fixed Frame: true
           Use rainbow: false
           Value: true
-        - Alpha: 0.10000000149011612
+        - Alpha: 0.5
           Autocompute Intensity Bounds: false
           Autocompute Value Bounds:
             Max Value: 15
