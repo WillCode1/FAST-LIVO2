@@ -178,6 +178,16 @@ void VIOManager::ResetGrid() {
   total_points_ = 0;
 }
 
+void VIOManager::ResetVioMap() {
+  for (auto &pair : warp_map_)
+    delete pair.second;
+  warp_map_.clear();
+  for (auto &pair : vp_map_)
+    delete pair.second->second;
+  vp_map_.clear();
+  vp_data_.clear();
+}
+
 // void VIOManager::resetRvizDisplay()
 // {
 // sub_map_ray.clear();
@@ -1151,7 +1161,9 @@ void VIOManager::RetrieveFromVisualSparseMapLRU(
   }
   total_points_ = visual_submap_->voxel_points.size();
 
+#ifdef PRINT_TIME
   printf("[ VIO ] Retrieve %d points from visual sparse map\n", total_points_);
+#endif
 }
 
 void VIOManager::ComputeJacobianAndUpdateEKF(cv::Mat img) {
@@ -1264,7 +1276,9 @@ void VIOManager::GenerateVisualMapPoints(cv::Mat img,
     }
   }
 
+#ifdef PRINT_TIME
   printf("[ VIO ] Append %d new visual map points\n", add);
+#endif
 }
 
 void VIOManager::UpdateVisualMapPoints(cv::Mat img) {
@@ -1324,7 +1338,9 @@ void VIOManager::UpdateVisualMapPoints(cv::Mat img) {
       pt->addFrameRef(ftr_new);
     }
   }
+#ifdef PRINT_TIME
   printf("[ VIO ] Update %d points in visual submap\n", update_num);
+#endif
 }
 
 void VIOManager::UpdateReferencePatch(
@@ -2498,6 +2514,7 @@ void VIOManager::ProcessFrame(
   ave_total_ = ave_total_ * (frame_count_ - 1) / frame_count_ +
                (t7 - t1 - (t5 - t4)) / frame_count_;
 
+#ifdef PRINT_TIME
   printf(
       "\033[1;34m+-------------------------------------------------------------"
       "+\033[0m\n");
@@ -2541,4 +2558,5 @@ void VIOManager::ProcessFrame(
   printf(
       "\033[1;34m+-------------------------------------------------------------"
       "+\033[0m\n");
+#endif
 }

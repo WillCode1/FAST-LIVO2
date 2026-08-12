@@ -66,7 +66,7 @@ local_map:
 
 uav:
   imu_rate_odom: false
-  gravity_align_en: false
+  gravity_align_en: true
 
 publish:
   dense_map_en: true
@@ -93,4 +93,59 @@ image_save:
   interval: 1
 
 lru_config:
-  lru_size: 20000
+  lru_size: 30000
+
+backend:
+  # keyframe_add_dist_threshold: 1
+  keyframe_add_dist_threshold: 2.5
+  keyframe_add_angle_threshold: 0.2
+  recontruct_kdtree: true
+  ikdtree_reconstruct_keyframe_num: 10
+  ikdtree_reconstruct_downsamp_size: 0.1
+
+  # for add GNSS factor
+  lla: [31.4200590, 120.6394099, 14.790]
+  numsv: 20
+  rtk_age: 30
+  gpsCovThreshold: [0.05, 0.05, 0.1, 0.05, 0.05, 0.05]
+  pose_cov_threshold: 0.
+  gnss_weight: [1, 1, 0.1]
+  gnssValidInterval: 0.1
+  useGpsElevation: true
+
+  # for loop closure
+  loop_closure_interval: 300
+  loop_closure_enable_flag: true
+  loop_keyframe_num_thld: 50
+  loop_closure_search_radius: 3
+  loop_closure_keyframe_interval: 100
+  keyframe_search_num: 20
+  loop_closure_fitness_use_adaptability: true
+  loop_closure_fitness_score_thld_min: 0.2
+  loop_closure_fitness_score_thld_max: 0.3
+  icp_downsamp_size: 0.1
+  manually_loop_vaild_period: [0, 1]
+  odom_loop_vaild_period: []
+  scancontext_loop_vaild_period: [0, 1]
+
+  # lidar -> gnss
+  extrinsic_gnss_T: [ 0., 0., 0. ]
+  extrinsic_gnss_R: [ 1., 0., 0., 
+                      0., 1., 0., 
+                      0., 0., 1. ]
+
+scan_context:
+  lidar_height: 2.183
+  sc_dist_thres: 0.13
+
+publish:
+  path_en:  true
+  scan_publish_en:  true       # false: close all the point cloud output
+  dense_publish_en: false       # false: low down the points number in a global-frame point clouds scan.
+
+official:
+  save_globalmap_en: false
+  save_resolution: 0.2
+  save_keyframe_en: false
+  save_keyframe_descriptor_en: false
+  # map_path: "/home/will/data/test_mapping/mapping1"

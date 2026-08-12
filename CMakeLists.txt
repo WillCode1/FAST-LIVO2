@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Set common compile options
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions")
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions -O0 -g -fsanitize=address")
 
 # Specific settings for Debug build
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
@@ -101,10 +102,12 @@ include_directories(${GLOG_INCLUDE_DIR})
 find_package(Gflags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
+set(GTSAM_DIR "/home/will/thirdparty/gtsam-4.2.0-native/build") 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
-find_package(Boost REQUIRED COMPONENTS thread)
+find_package(GTSAM REQUIRED)
+find_package(Boost REQUIRED COMPONENTS serialization timer thread chrono)
 
 # Define the catkin package
 catkin_package(
@@ -116,8 +119,10 @@ catkin_package(
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
+  ${Boost_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
+  ${GTSAM_INCLUDE_DIR}
   include
   vikit_common/include
 )
@@ -127,7 +132,9 @@ add_library(vio src/vio.cpp src/image_frame.cpp)
 add_library(lio src/voxel_map.cpp)
 add_library(pre src/preprocess.cpp)
 add_library(imu_proc src/IMU_Processing.cpp)
-add_library(laser_mapping src/LIVMapper.cpp)
+add_library(laser_mapping src/LIVMapper.cpp     
+    include/backend/global_localization/scancontext/Scancontext.cpp
+    include/backend/global_localization/InitCoordinate.cpp)
 
 # Add the main executable
 add_executable(fastlivo_mapping src/main.cpp)
@@ -143,9 +150,11 @@ target_link_libraries(fastlivo_mapping
   ${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}
   glog::glog
+  stdc++fs
   ${GFLAGS_LIBRARIES}
   ${Boost_LIBRARIES}
   vikit_plugin
+  gtsam
 )
 
 # Link mimalloc if found

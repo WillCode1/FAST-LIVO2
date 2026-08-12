@@ -29,6 +29,7 @@ class LIVMapper {
   void InitializeSubscribersAndPublishers(ros::NodeHandle &nh,
                                           image_transport::ImageTransport &it);
   void InitializeComponents();
+  void InitBackend(bool &save_globalmap_en);
   void InitializeFiles();
   void Run();
   void GravityAlignment();

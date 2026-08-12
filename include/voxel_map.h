@@ -32,6 +32,8 @@ which is included as part of this source code package.
 #define VOXELMAP_HASH_P 116101
 #define VOXELMAP_MAX_N 10000000000
 
+// #define PRINT_TIME
+
 static int voxel_plane_id = 0;
 
 typedef struct VoxelMapConfig {
@@ -235,6 +237,8 @@ class VoxelMapManager {
   void BuildVoxelMapLRU();
 
   void BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_world);
+
+  void RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_world);
 
   V3F RGBFromVoxel(const V3D &input_point);
 

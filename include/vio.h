@@ -183,6 +183,8 @@ class VIOManager {
 
   void ResetGrid();
 
+  void ResetVioMap();
+
   void UpdateVisualMapPoints(cv::Mat img);
 
   void GetWarpMatrixAffine(const vk::AbstractCamera &cam,

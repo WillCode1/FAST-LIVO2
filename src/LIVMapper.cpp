@@ -10,10 +10,15 @@ This file is subject to the terms and conditions outlined in the 'LICENSE' file,
 which is included as part of this source code package.
 */
 
+#include "backend/backend/Backend.hpp"
 #include "LIVMapper.h"
 
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
+
+FILE *location_log = nullptr;
+Backend backend;
+bool save_globalmap_en;
 
 LIVMapper::LIVMapper(ros::NodeHandle &nh, const std::string &camera_config)
     : ext_t_(0, 0, 0), ext_r_(M3D::Identity()), camera_config_(camera_config) {
@@ -42,6 +47,7 @@ LIVMapper::LIVMapper(ros::NodeHandle &nh, const std::string &camera_config)
   root_dir_ = ROOT_DIR;
   InitializeFiles();
   InitializeComponents();
+  InitBackend(save_globalmap_en);
   path_.header.stamp = ros::Time::now();
   path_.header.frame_id = "camera_init";
   int lru_size = 1000000;
@@ -166,6 +172,68 @@ void LIVMapper::InitializeComponents() {
   if (!exposure_estimate_en_) p_imu_->DisableExposureEst();
 
   slam_mode_ = img_en_ ? LIVO : ONLY_LIO;
+}
+
+void LIVMapper::InitBackend(bool &save_globalmap_en)
+{
+  vector<double> extrinT;
+  vector<double> extrinR;
+  V3D extrinT_eigen;
+  M3D extrinR_eigen;
+
+  ros::param::param("backend/keyframe_add_dist_threshold", backend.backend->keyframe_add_dist_threshold, 1.f);
+  ros::param::param("backend/keyframe_add_angle_threshold", backend.backend->keyframe_add_angle_threshold, 0.2f);
+  ros::param::param("backend/numsv", backend.gnss->numsv, 20);
+  ros::param::param("backend/rtk_age", backend.gnss->rtk_age, 30.f);
+  ros::param::param("backend/gpsCovThreshold", backend.gnss->gpsCovThreshold, vector<double>());
+  ros::param::param("backend/pose_cov_threshold", backend.backend->pose_cov_threshold, 25.f);
+  ros::param::param("backend/gnss_weight", backend.backend->gnss_weight, vector<double>());
+  ros::param::param("backend/gnssValidInterval", backend.gnss->gnssValidInterval, 0.2f);
+  ros::param::param("backend/useGpsElevation", backend.gnss->useGpsElevation, false);
+
+  ros::param::param("backend/extrinsic_gnss_T", extrinT, vector<double>());
+  ros::param::param("backend/extrinsic_gnss_R", extrinR, vector<double>());
+  extrinT_eigen << VEC_FROM_ARRAY(extrinT);
+  extrinR_eigen << MAT_FROM_ARRAY(extrinR);
+  backend.gnss->set_extrinsic(extrinT_eigen, extrinR_eigen);
+
+  ros::param::param("backend/recontruct_kdtree", backend.backend->recontruct_kdtree, true);
+  ros::param::param("backend/ikdtree_reconstruct_keyframe_num", backend.backend->ikdtree_reconstruct_keyframe_num, 10);
+  ros::param::param("backend/ikdtree_reconstruct_downsamp_size", backend.backend->ikdtree_reconstruct_downsamp_size, 0.1f);
+
+  ros::param::param("backend/loop_closure_enable_flag", backend.loop_closure_enable_flag, false);
+  ros::param::param("backend/loop_closure_interval", backend.loop_closure_interval, 1000);
+  ros::param::param("backend/loop_keyframe_num_thld", backend.loopClosure->loop_keyframe_num_thld, 50);
+  ros::param::param("backend/loop_closure_search_radius", backend.loopClosure->loop_closure_search_radius, 10.f);
+  ros::param::param("backend/loop_closure_keyframe_interval", backend.loopClosure->loop_closure_keyframe_interval, 30);
+  ros::param::param("backend/keyframe_search_num", backend.loopClosure->keyframe_search_num, 20);
+  ros::param::param("backend/loop_closure_fitness_use_adaptability", backend.loopClosure->loop_closure_fitness_use_adaptability, false);
+  ros::param::param("backend/loop_closure_fitness_score_thld_min", backend.loopClosure->loop_closure_fitness_score_thld_min, 0.1f);
+  ros::param::param("backend/loop_closure_fitness_score_thld_max", backend.loopClosure->loop_closure_fitness_score_thld_max, 0.3f);
+  ros::param::param("backend/icp_downsamp_size", backend.loopClosure->icp_downsamp_size, 0.1f);
+  ros::param::param("backend/manually_loop_vaild_period", backend.loopClosure->loop_vaild_period["manually"], vector<double>());
+  ros::param::param("backend/odom_loop_vaild_period", backend.loopClosure->loop_vaild_period["odom"], vector<double>());
+  ros::param::param("backend/scancontext_loop_vaild_period", backend.loopClosure->loop_vaild_period["scancontext"], vector<double>());
+
+  ros::param::param("official/save_globalmap_en", save_globalmap_en, true);
+  ros::param::param("official/save_keyframe_en", backend.save_keyframe_en, true);
+  ros::param::param("official/save_keyframe_descriptor_en", backend.save_keyframe_descriptor_en, true);
+  ros::param::param("official/save_resolution", backend.save_resolution, 0.1f);
+  ros::param::param("official/map_path", backend.map_path, std::string(""));
+  if (backend.map_path.compare("") != 0)
+  {
+    backend.globalmap_path = backend.map_path + "/globalmap.pcd";
+    backend.trajectory_path = backend.map_path + "/trajectory.pcd";
+    backend.keyframe_path = backend.map_path + "/keyframe/";
+    backend.scd_path = backend.map_path + "/scancontext/";
+  }
+  else
+    backend.map_path = PCD_FILE_DIR("");
+
+  ros::param::param("scan_context/lidar_height", backend.relocalization->sc_manager->LIDAR_HEIGHT, 2.0);
+  ros::param::param("scan_context/sc_dist_thres", backend.relocalization->sc_manager->SC_DIST_THRES, 0.5);
+
+  backend.init_system_mode();
 }
 
 void LIVMapper::InitializeFiles() {
@@ -299,8 +367,10 @@ void LIVMapper::HandleVIO() {
     return;
   }
 
+#ifdef PRINT_TIME
   std::cout << "[ VIO ] Raw feature num: " << pcl_w_wait_pub_->points.size()
             << std::endl;
+#endif
 
   if (fabs((lidar_measures_.last_lio_update_time - first_lidar_time_) -
            plot_time_) < (frame_cnt_ / 2 * 0.1)) {
@@ -447,7 +517,9 @@ void LIVMapper::HandleLIO() {
   }
   // voxelmap_manager_->UpdateVoxelMap(voxelmap_manager_->pv_list_);
   voxel_map_manager_->UpdateVoxelMapLRU(voxel_map_manager_->pv_list_);
+#ifdef PRINT_TIME
   std::cout << "[ LIO ] Update Voxel Map" << std::endl;
+#endif
   pv_list_ = voxel_map_manager_->pv_list_;
 
   double t4 = omp_get_wtime();
@@ -498,6 +570,7 @@ void LIVMapper::HandleLIO() {
   //         "\033[1;36m[ LIO mapping time ]: average: icp: %0.6f secs, map
   //         incre: %0.6f secs, total: %0.6f secs.\033[0m\n", t2 - t1, t4 - t3,
   //         t4 - t0, aver_time_icp, aver_time_map_inre, aver_time_consu);
+#ifdef PRINT_TIME
   printf(
       "\033[1;34m+-------------------------------------------------------------"
       "+\033[0m\n");
@@ -524,6 +597,7 @@ void LIVMapper::HandleLIO() {
   printf(
       "\033[1;34m+-------------------------------------------------------------"
       "+\033[0m\n");
+#endif
 
   euler_cur_ = RotMtoEuler(state_.rot_end);
   fout_out_ << std::setw(20)
@@ -606,6 +680,27 @@ void LIVMapper::Run() {
     ProcessImu();
 
     StateEstimationAndMapping();
+
+    if (feats_undistort_ && !feats_undistort_->empty())
+    {
+      PointXYZIRPYT this_pose6d;
+      PointCloudType::Ptr submap_fix(new PointCloudType());
+      state2pose(this_pose6d, lidar_measures_.measures.back().lio_time, state_, ext_r_, ext_t_);
+      backend.run(this_pose6d, feats_undistort_, submap_fix);
+      if (submap_fix->size())
+      {
+        pose2state(this_pose6d, state_, ext_r_, ext_t_);
+        downSize_filter_surf_.setInputCloud(feats_undistort_);
+        downSize_filter_surf_.filter(*feats_down_body_);
+        TransformLidar(state_.rot_end, state_.pos_end, feats_down_body_, feats_down_world_);
+
+        voxel_map_manager_->state_ = state_;
+        voxel_map_manager_->feats_down_body_ = feats_down_body_;
+        voxel_map_manager_->RebuildVoxelMapLRU(feats_down_world_);
+        // voxel_map_manager_->UpdateVoxelMapLRU(submap_fix);
+        vio_manager_->ResetVioMap();
+      }
+    }
   }
   SavePCD();
 }
@@ -912,7 +1007,9 @@ void LIVMapper::ImageCbk(const sensor_msgs::ImageConstPtr &msg_in) {
   // double msg_header_time =  msg->header.stamp.toSec();
   double msg_header_time = msg->header.stamp.toSec() + img_time_offset_;
   if (abs(msg_header_time - last_timestamp_img_) < 0.001) return;
+#ifdef PRINT_TIME
   ROS_INFO("Get image, its header time: %.6f", msg_header_time);
+#endif
   if (last_timestamp_lidar_ < 0) return;
 
   if (msg_header_time < last_timestamp_img_) {

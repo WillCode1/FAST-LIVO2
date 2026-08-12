@@ -412,11 +412,13 @@ void VoxelMapManager::StateEstimation(StatesGroup &state_propagat) {
       total_residual += fabs(ptpl_list_[i].dis_to_plane_);
     }
     effct_feat_num_ = ptpl_list_.size();
+#ifdef PRINT_TIME
     std::cout << "[ LIO ] Raw feature num: " << undistort_size_
               << ", downsampled feature num:" << feats_down_size_
               << " effective feature num: " << effct_feat_num_
               << " average residual: " << total_residual / effct_feat_num_
               << std::endl;
+#endif
 
     /*** Computation of Measuremnt Jacobian matrix H and measurents covarience
      * ***/
@@ -701,6 +703,17 @@ void VoxelMapManager::BuildVoxelMapLRU(
   for (auto iter = vm_map_.begin(); iter != vm_map_.end(); ++iter) {
     iter->second->second->InitOctoTree();
   }
+}
+
+void VoxelMapManager::RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_world)
+{
+  // reset
+  for (auto &pair : vm_map_)
+    delete pair.second->second;
+  vm_map_.clear();
+  vm_data_.clear();
+
+  BuildVoxelMapLRU(cloud_world);
 }
 
 V3F VoxelMapManager::RGBFromVoxel(const V3D &input_point) {
