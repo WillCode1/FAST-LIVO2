@@ -781,7 +781,7 @@ void LIVMapper::ImuPropCallback(const ros::TimerEvent &e) {
     posi = imu_propagate_.pos_end;
     vel_i = imu_propagate_.vel_end;
     q = Eigen::Quaterniond(imu_propagate_.rot_end);
-    imu_prop_odom_.header.frame_id = "world";
+    imu_prop_odom_.header.frame_id = "camera_init";
     imu_prop_odom_.header.stamp = newest_imu_.header.stamp;
     imu_prop_odom_.pose.pose.position.x = posi.x();
     imu_prop_odom_.pose.pose.position.y = posi.y();
