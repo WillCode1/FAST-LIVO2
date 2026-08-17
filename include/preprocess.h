@@ -13,7 +13,13 @@ which is included as part of this source code package.
 #ifndef PREPROCESS_H_
 #define PREPROCESS_H_
 
+#ifdef ROS1
+#include <sensor_msgs/PointCloud2.h>
 #include <livox_ros_driver/CustomMsg.h>
+#else
+#include <sensor_msgs/msg/point_cloud.hpp>
+#include <livox_ros_driver2/msg/custom_msg.hpp>
+#endif
 #include <pcl_conversions/pcl_conversions.h>
 
 #include "common_lib.h"
@@ -140,10 +146,17 @@ class Preprocess {
   Preprocess();
   ~Preprocess();
 
+#ifdef ROS1
   void Process(const livox_ros_driver::CustomMsg::ConstPtr &msg,
                PointCloudXYZIN::Ptr &pcl_out);
   void Process(const sensor_msgs::PointCloud2::ConstPtr &msg,
                PointCloudXYZIN::Ptr &pcl_out);
+#else
+  void Process(const livox_ros_driver2::msg::CustomMsg::SharedPtr &msg,
+               PointCloudXYZIN::Ptr &pcl_out);
+  void Process(const sensor_msgs::msg::PointCloud2::SharedPtr &msg,
+               PointCloudXYZIN::Ptr &pcl_out);
+#endif
   void Set(bool feat_en, int lid_type, double bld, int pfilt_num);
 
   // sensor_msgs::PointCloud2::ConstPtr pointcloud;
@@ -154,9 +167,9 @@ class Preprocess {
 
   double blind_, blind_sqr_;
   bool feature_enabled_, given_offset_time_;
-  ros::Publisher pub_full_, pub_surf_, pub_corn_;
 
  private:
+#ifdef ROS1
   void AviaHandler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
   void Oust64Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void VelodyneHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
@@ -164,8 +177,17 @@ class Preprocess {
   void Pandar128Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void RobosenseHandler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void L515Handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
+#else
+  void AviaHandler(const livox_ros_driver2::msg::CustomMsg::SharedPtr &msg);
+  void Oust64Handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void VelodyneHandler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void Xt32Handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void Pandar128Handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void RobosenseHandler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+  void L515Handler(const sensor_msgs::msg::PointCloud2::SharedPtr &msg);
+#endif
   void GiveFeature(PointCloudXYZIN &pl, std::vector<orgtype> &types);
-  void PubFunc(PointCloudXYZIN &pl, const ros::Time &ct);
+  // void PubFunc(PointCloudXYZIN &pl, const ros::Time &ct);
   int PlaneJudge(const PointCloudXYZIN &pl, std::vector<orgtype> &types, uint i,
                   uint &i_nex, Eigen::Vector3d &curr_direct);
   bool EdgeJumpJudge(const PointCloudXYZIN &pl, std::vector<orgtype> &types,

@@ -21,7 +21,7 @@ T getYamlParam(const YAML::Node& node, const std::string& key, T default_val = T
 }
 
 /// 从 YAML 节点加载单个相机
-bool loadFromYaml(const YAML::Node& node, vk::AbstractCamera*& cam) {
+inline bool loadFromYaml(const YAML::Node& node, vk::AbstractCamera*& cam) {
   bool res = true;
   std::string cam_model = node["cam_model"].as<std::string>();
   
@@ -90,7 +90,7 @@ bool loadFromYaml(const YAML::Node& node, vk::AbstractCamera*& cam) {
 }
 
 /// 从 YAML 文件加载多个相机
-bool loadFromYamlFile(const std::string& yaml_file, std::vector<vk::AbstractCamera*>& cam_list) {
+inline bool loadFromYamlFile(const std::string& yaml_file, std::vector<vk::AbstractCamera*>& cam_list) {
   try {
     YAML::Node config = YAML::LoadFile(yaml_file);
     int cam_num = config["cam_num"].as<int>();

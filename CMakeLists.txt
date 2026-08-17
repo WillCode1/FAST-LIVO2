@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(fast_livo)
 
 set(CMAKE_BUILD_TYPE "Release")
@@ -76,22 +76,6 @@ else()
   message(STATUS "mimalloc not found, proceeding without it")
 endif()
 
-# Find catkin and required dependencies
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  nav_msgs
-  sensor_msgs
-  roscpp
-  rospy
-  std_msgs
-  pcl_ros
-  tf
-  message_generation
-  eigen_conversions
-  cv_bridge
-  image_transport
-)
-
 add_subdirectory(vikit_common)
 
 # glog
@@ -109,15 +93,8 @@ find_package(OpenCV REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(Boost REQUIRED COMPONENTS serialization timer thread chrono)
 
-# Define the catkin package
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge image_transport
-  DEPENDS EIGEN3 PCL OpenCV 
-)
-
 # Include directories for dependencies
 include_directories(
-  ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${Boost_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
@@ -136,28 +113,128 @@ add_library(laser_mapping src/LIVMapper.cpp
     include/backend/global_localization/scancontext/Scancontext.cpp
     include/backend/global_localization/InitCoordinate.cpp)
 
-# Add the main executable
-add_executable(fastlivo_mapping src/main.cpp)
+if(ROS_EDITION STREQUAL "ROS1")
+  add_definitions(-DROS1)
 
-# Link libraries to the executable
-target_link_libraries(fastlivo_mapping
-  laser_mapping
-  vio
-  lio
-  pre
-  imu_proc
-  ${catkin_LIBRARIES}
-  ${PCL_LIBRARIES}
-  ${OpenCV_LIBRARIES}
-  glog::glog
-  stdc++fs
-  ${GFLAGS_LIBRARIES}
-  ${Boost_LIBRARIES}
-  vikit_plugin
-  gtsam
-)
+  # Find catkin and required dependencies
+  find_package(catkin REQUIRED COMPONENTS
+    geometry_msgs
+    nav_msgs
+    sensor_msgs
+    roscpp
+    rospy
+    std_msgs
+    pcl_ros
+    tf
+    message_generation
+    eigen_conversions
+    cv_bridge
+    image_transport
+  )
 
-# Link mimalloc if found
-if(mimalloc_FOUND)
-  target_link_libraries(fastlivo_mapping mimalloc)
+  # Define the catkin package
+  catkin_package(
+    CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge image_transport
+    DEPENDS EIGEN3 PCL OpenCV 
+  )
+
+  include_directories(
+    ${catkin_INCLUDE_DIRS}
+  )
+
+  # Add the main executable
+  add_executable(fastlivo_mapping src/main.cpp)
+
+  # Link libraries to the executable
+  target_link_libraries(fastlivo_mapping
+    laser_mapping
+    vio
+    lio
+    pre
+    imu_proc
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    glog::glog
+    stdc++fs
+    ${GFLAGS_LIBRARIES}
+    ${Boost_LIBRARIES}
+    vikit_plugin
+    gtsam
+  )
+
+  # Link mimalloc if found
+  if(mimalloc_FOUND)
+    target_link_libraries(fastlivo_mapping mimalloc)
+  endif()
+
+  install(TARGETS fastlivo_mapping
+    ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+    RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  )
+
+  install(DIRECTORY launch config rviz_cfg
+    DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
+  )
+else(ROS_EDITION STREQUAL "ROS2")
+  if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+  endif()
+
+  find_package(ament_cmake REQUIRED)
+  find_package(rclcpp REQUIRED)
+  find_package(rclpy REQUIRED)
+  find_package(nav_msgs REQUIRED)
+  find_package(sensor_msgs REQUIRED)
+  find_package(pcl_conversions REQUIRED)
+  find_package(tf2_ros REQUIRED)
+  find_package(cv_bridge REQUIRED)
+  find_package(image_transport REQUIRED)
+  find_package(pcl_ros REQUIRED)
+  find_package(visualization_msgs REQUIRED)
+  find_package(livox_ros_driver2 REQUIRED)
+
+  if(BUILD_TESTING)
+    find_package(ament_lint_auto REQUIRED)
+    # the following line skips the linter which checks for copyrights
+    # uncomment the line when a copyright and license is not present in all source files
+    #set(ament_cmake_copyright_FOUND TRUE)
+    # the following line skips cpplint (only works in a git repo)
+    # uncomment the line when this package is not in a git repo
+    #set(ament_cmake_cpplint_FOUND TRUE)
+    ament_lint_auto_find_test_dependencies()
+  endif()
+
+  ament_package()
+
+  add_executable(fastlivo_mapping src/main.cpp)
+  target_link_libraries(fastlivo_mapping
+    laser_mapping
+    vio
+    lio
+    pre
+    imu_proc
+    ${PCL_LIBRARIES}
+    ${OpenCV_LIBRARIES}
+    glog::glog
+    stdc++fs
+    ${GFLAGS_LIBRARIES}
+    ${Boost_LIBRARIES}
+    vikit_plugin
+    gtsam
+    ${OpenMP_CXX_LIBRARIES}
+  )
+  ament_target_dependencies(vio rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+  ament_target_dependencies(lio rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+  ament_target_dependencies(pre rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+  ament_target_dependencies(imu_proc rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+  ament_target_dependencies(laser_mapping rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+  ament_target_dependencies(fastlivo_mapping rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
+
+  install(TARGETS fastlivo_mapping
+    DESTINATION lib/${PROJECT_NAME}
+  )
+  install(DIRECTORY launch config rviz_cfg
+    DESTINATION share/${PROJECT_NAME})
 endif()

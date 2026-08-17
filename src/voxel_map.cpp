@@ -40,6 +40,7 @@ void CalcBodyCov(Eigen::Vector3d &pb, const float range_inc,
         A * direction_var * A.transpose();
 }
 
+#ifdef ROS1
 void loadVoxelConfig(ros::NodeHandle &nh, VoxelMapConfig &voxel_config) {
   nh.param<bool>("publish/pub_plane_en", voxel_config.is_pub_plane_map_, false);
 
@@ -60,6 +61,43 @@ void loadVoxelConfig(ros::NodeHandle &nh, VoxelMapConfig &voxel_config) {
   nh.param<int>("local_map/half_map_size", voxel_config.half_map_size, 100);
   nh.param<double>("local_map/sliding_thresh", voxel_config.sliding_thresh, 8);
 }
+#else
+void loadVoxelConfig(rclcpp::Node::SharedPtr &node, VoxelMapConfig &voxel_config) {
+  std::vector<int64_t> layer_init_num;
+  node->declare_parameter("publish.pub_plane_en", false);
+  node->declare_parameter("lio.max_layer", 1);
+  node->declare_parameter("lio.voxel_size", 0.5);
+  node->declare_parameter("lio.min_eigen_value", 0.01);
+  node->declare_parameter("lio.sigma_num", 3.0);
+  node->declare_parameter("lio.beam_err", 0.02);
+  node->declare_parameter("lio.dept_err", 0.05);
+  node->declare_parameter("lio.layer_init_num", std::vector<int64_t>({5, 5, 5, 5, 5}));
+  node->declare_parameter("lio.max_points_num", 50);
+  node->declare_parameter("lio.max_iterations", 5);
+  node->declare_parameter("local_map.map_sliding_en", false);
+  node->declare_parameter("local_map.half_map_size", 100);
+  node->declare_parameter("local_map.sliding_thresh", 8.0);
+
+  node->get_parameter("publish.pub_plane_en", voxel_config.is_pub_plane_map_);
+  node->get_parameter("lio.max_layer", voxel_config.max_layer_);
+  node->get_parameter("lio.voxel_size", voxel_config.max_voxel_size_);
+  node->get_parameter("lio.min_eigen_value", voxel_config.planner_threshold_);
+  node->get_parameter("lio.sigma_num", voxel_config.sigma_num_);
+  node->get_parameter("lio.beam_err", voxel_config.beam_err_);
+  node->get_parameter("lio.dept_err", voxel_config.dept_err_);
+  node->get_parameter("lio.layer_init_num", layer_init_num);
+  node->get_parameter("lio.max_points_num", voxel_config.max_points_num_);
+  node->get_parameter("lio.max_iterations", voxel_config.max_iterations_);
+  node->get_parameter("local_map.map_sliding_en", voxel_config.map_sliding_en);
+  node->get_parameter("local_map.half_map_size", voxel_config.half_map_size);
+  node->get_parameter("local_map.sliding_thresh", voxel_config.sliding_thresh);
+
+  for (const auto &val : layer_init_num)
+  {
+    voxel_config.layer_init_num_.push_back(static_cast<int>(val));
+  }
+}
+#endif
 
 void VoxelOctoTree::InitPlane(const std::vector<pointWithVar> &points,
                               VoxelPlane *plane) {
@@ -1065,7 +1103,7 @@ void VoxelMapManager::PubVoxelMap() {
   double pow_num = 0.2;
   ros::Rate loop(500);
   float use_alpha = 0.8;
-  visualization_msgs::MarkerArray voxel_plane;
+  visualization_msgs::msg::MarkerArray voxel_plane;
   voxel_plane.markers.reserve(1000000);
   std::vector<VoxelPlane> pub_plane_list;
   for (auto iter = voxel_map_.begin(); iter != voxel_map_.end(); iter++) {
@@ -1098,9 +1136,14 @@ void VoxelMapManager::PubVoxelMap() {
 void VoxelMapManager::PubVoxelMapLRU() {
   double max_trace = 0.25;
   double pow_num = 0.2;
-  ros::Rate loop(500);
   float use_alpha = 0.8;
+#ifdef ROS1
+  ros::Rate loop(500);
   visualization_msgs::MarkerArray voxel_plane;
+#else
+  rclcpp::Rate loop(500);
+  visualization_msgs::msg::MarkerArray voxel_plane;
+#endif
   voxel_plane.markers.reserve(1000000);
   std::vector<VoxelPlane> pub_plane_list;
   for (auto iter = vm_map_.begin(); iter != vm_map_.end(); iter++) {
@@ -1126,7 +1169,11 @@ void VoxelMapManager::PubVoxelMapLRU() {
     }
     PubSinglePlane(voxel_plane, "plane", pub_plane_list[i], alpha, plane_rgb);
   }
+#ifdef ROS1
   voxel_map_pub_.publish(voxel_plane);
+#else
+  voxel_map_pub_->publish(voxel_plane);
+#endif
   loop.sleep();
 }
 
@@ -1152,22 +1199,37 @@ void VoxelMapManager::GetUpdatePlane(const VoxelOctoTree *current_octo,
   return;
 }
 
+#ifdef ROS1
 void VoxelMapManager::PubSinglePlane(visualization_msgs::MarkerArray &plane_pub,
+#else
+void VoxelMapManager::PubSinglePlane(visualization_msgs::msg::MarkerArray &plane_pub,
+#endif
                                      const std::string plane_ns,
                                      const VoxelPlane &single_plane,
                                      const float alpha,
                                      const Eigen::Vector3d rgb) {
+#ifdef ROS1
+  geometry_msgs::Quaternion q;
   visualization_msgs::Marker plane;
-  plane.header.frame_id = "camera_init";
   plane.header.stamp = ros::Time();
+#else
+  geometry_msgs::msg::Quaternion q;
+  visualization_msgs::msg::Marker plane;
+  plane.header.stamp = rclcpp::Clock().now();
+#endif
+  plane.header.frame_id = "camera_init";
   plane.ns = plane_ns;
   plane.id = single_plane.id_;
+#ifdef ROS1
   plane.type = visualization_msgs::Marker::CYLINDER;
   plane.action = visualization_msgs::Marker::ADD;
+#else
+  plane.type = visualization_msgs::msg::Marker::CYLINDER;
+  plane.action = visualization_msgs::msg::Marker::ADD;
+#endif
   plane.pose.position.x = single_plane.center_[0];
   plane.pose.position.y = single_plane.center_[1];
   plane.pose.position.z = single_plane.center_[2];
-  geometry_msgs::Quaternion q;
   CalcVectQuation(single_plane.x_normal_, single_plane.y_normal_,
                   single_plane.normal_, q);
   plane.pose.orientation = q;
@@ -1178,14 +1240,22 @@ void VoxelMapManager::PubSinglePlane(visualization_msgs::MarkerArray &plane_pub,
   plane.color.r = rgb(0);
   plane.color.g = rgb(1);
   plane.color.b = rgb(2);
+#ifdef ROS1
   plane.lifetime = ros::Duration();
+#else
+  plane.lifetime = rclcpp::Duration(0, 0);
+#endif
   plane_pub.markers.push_back(plane);
 }
 
 void VoxelMapManager::CalcVectQuation(const Eigen::Vector3d &x_vec,
                                       const Eigen::Vector3d &y_vec,
                                       const Eigen::Vector3d &z_vec,
+#ifdef ROS1
                                       geometry_msgs::Quaternion &q) {
+#else
+                                      geometry_msgs::msg::Quaternion &q) {
+#endif
   Eigen::Matrix3d rot;
   rot << x_vec(0), x_vec(1), x_vec(2), y_vec(0), y_vec(1), y_vec(2), z_vec(0),
       z_vec(1), z_vec(2);

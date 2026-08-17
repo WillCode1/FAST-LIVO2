@@ -16,10 +16,16 @@ which is included as part of this source code package.
 #include <math.h>
 #include <omp.h>
 #include <pcl/common/io.h>
+#ifdef ROS1
 #include <ros/ros.h>
-#include <unistd.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#else
+#include <rclcpp/rclcpp.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
+#endif
+#include <unistd.h>
 
 #include <Eigen/Dense>
 #include <fstream>
@@ -188,7 +194,11 @@ class VoxelOctoTree {
 };
 using VMData = std::pair<VOXEL_LOCATION, VoxelOctoTree *>;
 
+#ifdef ROS1
 void loadVoxelConfig(ros::NodeHandle &nh, VoxelMapConfig &voxel_config);
+#else
+void loadVoxelConfig(rclcpp::Node::SharedPtr &node, VoxelMapConfig &voxel_config);
+#endif
 
 class VoxelMapManager {
  public:
@@ -198,7 +208,11 @@ class VoxelMapManager {
 
   VoxelMapConfig config_setting_;
   int current_frame_id_ = 0;
+#ifdef ROS1
   ros::Publisher voxel_map_pub_;
+#else
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr voxel_map_pub_;
+#endif
   // std::unordered_map<VOXEL_LOCATION, VoxelOctoTree *> voxel_map_;
   std::list<VMData> vm_data_;
   std::unordered_map<VOXEL_LOCATION, typename std::list<VMData>::iterator>
@@ -270,7 +284,11 @@ class VoxelMapManager {
                       const int pub_max_voxel_layer,
                       std::vector<VoxelPlane> &plane_list);
 
+#ifdef ROS1
   void PubSinglePlane(visualization_msgs::MarkerArray &plane_pub,
+#else
+  void PubSinglePlane(visualization_msgs::msg::MarkerArray &plane_pub,
+#endif
                       const std::string plane_ns,
                       const VoxelPlane &single_plane, const float alpha,
                       const Eigen::Vector3d rgb);
@@ -278,7 +296,11 @@ class VoxelMapManager {
   void CalcVectQuation(const Eigen::Vector3d &x_vec,
                        const Eigen::Vector3d &y_vec,
                        const Eigen::Vector3d &z_vec,
+#ifdef ROS1
                        geometry_msgs::Quaternion &q);
+#else
+                       geometry_msgs::msg::Quaternion &q);
+#endif
 
   void MapJet(double v, double vmin, double vmax, uint8_t &r, uint8_t &g,
               uint8_t &b);

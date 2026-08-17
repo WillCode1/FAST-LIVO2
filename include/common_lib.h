@@ -13,8 +13,13 @@ which is included as part of this source code package.
 #ifndef COMMON_LIB_H
 #define COMMON_LIB_H
 
+#ifdef ROS1
 #include <sensor_msgs/Imu.h>
 #include <tf/transform_broadcaster.h>
+#else
+#include <sensor_msgs/msg/imu.hpp>
+#include <tf2_ros/transform_broadcaster.h>
+#endif
 #include <utils/color.h>
 #include <utils/so3_math.h>
 #include <utils/types.h>
@@ -38,6 +43,12 @@ using Mat19d = Eigen::Matrix<double, 19, 19>;  // R:0~2, p:3~5, τ:6, v:7~9,
                                                // bg:10~12, ba:13~15, g:16~18
 using Vec19d = Eigen::Matrix<double, 19, 1>;
 
+template <typename T>
+double to_seconds(const T& stamp)
+{
+  return stamp.sec + stamp.nanosec * 1.e-9;
+}
+
 enum LID_TYPE {
   AVIA = 1,
   VELO16 = 2,
@@ -52,7 +63,11 @@ enum SLAM_MODE { ONLY_LIO = 0, LIVO = 1};
 struct MeasureGroup {
   double vio_time;
   double lio_time;
+#ifdef ROS1
   std::deque<sensor_msgs::Imu::ConstPtr> imu;
+#else
+  std::deque<sensor_msgs::msg::Imu::SharedPtr> imu;
+#endif
   cv::Mat img;
   MeasureGroup() {
     vio_time = 0.0;

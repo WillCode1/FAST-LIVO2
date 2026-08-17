@@ -16,11 +16,14 @@ which is included as part of this source code package.
 #include <Eigen/Eigen>
 #include "common_lib.h"
 #include <condition_variable>
+#ifdef ROS1
 #include <nav_msgs/Odometry.h>
+#else
+#include <nav_msgs/msg/odometry.hpp>
+#endif
 #include <utils/so3_math.h>
 
 #include <fstream>
-const bool time_list(PointXYZIN &x, PointXYZIN &y) { return (x.curvature < y.curvature); }
 
 /// *************IMU Process and undistortion
 class ImuProcess
@@ -66,7 +69,11 @@ public:
 private:
   void ImuInit(const MeasureGroup &meas, StatesGroup &state, int &N);
   PointCloudXYZIN pcl_wait_proc_;
+#ifdef ROS1
   sensor_msgs::ImuConstPtr last_imu_;
+#else
+  sensor_msgs::msg::Imu::SharedPtr last_imu_;
+#endif
   PointCloudXYZIN::Ptr cur_pcl_un_;
   std::vector<Pose6D> imu_pose_;
   M3D lidar_rot_to_imu_;
