@@ -114,7 +114,7 @@ void Preprocess::AviaHandler(
   pl_full_.clear();
   double t1 = omp_get_wtime();
   int plsize = msg->point_num;
-  printf("[ Preprocess ] Input point number: %d \n", plsize);
+  // printf("[ Preprocess ] Input point number: %d \n", plsize);
   // printf("point_filter_num: %d\n", point_filter_num);
 
   pl_corn_.reserve(plsize);
@@ -217,7 +217,7 @@ void Preprocess::AviaHandler(
       }
     }
   }
-  printf("[ Preprocess ] Output point number: %zu \n", pl_surf_.points.size());
+  // printf("[ Preprocess ] Output point number: %zu \n", pl_surf_.points.size());
 }
 
 #ifdef ROS1

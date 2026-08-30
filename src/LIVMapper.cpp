@@ -17,8 +17,68 @@ which is included as part of this source code package.
 #include <yaml-cpp/yaml.h>
 
 FILE *location_log = nullptr;
+bool showOptimizedPose = true;
+double globalMapVisualizationSearchRadius = 1000;
+double globalMapVisualizationPoseDensity = 10;
+double globalMapVisualizationLeafSize = 1;
 Backend backend;
 bool save_globalmap_en;
+std::thread visualizeMapThread;
+#ifdef ROS1
+ros::Publisher pubGlobalmap;
+
+void publish_cloud(const ros::Publisher &pubCloud,
+                   PointCloudType::Ptr cloud, const std::string &frame_id)
+{
+  sensor_msgs::PointCloud2 cloud_msg;
+  pcl::toROSMsg(*cloud, cloud_msg);
+  cloud_msg.header.stamp = ros::Time::now();
+  cloud_msg.header.frame_id = frame_id;
+  pubCloud.publish(cloud_msg);
+}
+
+void visualize_globalmap_thread(const ros::Publisher &pubGlobalmap)
+{
+  while (ros::ok())
+  {
+    this_thread::sleep_for(std::chrono::seconds(1));
+    auto submap_visual = backend.get_submap_visual(globalMapVisualizationSearchRadius,
+                                                   globalMapVisualizationPoseDensity,
+                                                   globalMapVisualizationLeafSize,
+                                                   showOptimizedPose);
+    if (submap_visual == nullptr)
+      continue;
+    publish_cloud(pubGlobalmap, submap_visual, "camera_init");
+  }
+}
+#else
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubGlobalmap;
+
+void publish_cloud(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &pubCloud,
+                   PointCloudType::Ptr cloud, const std::string &frame_id)
+{
+  sensor_msgs::msg::PointCloud2 cloud_msg;
+  pcl::toROSMsg(*cloud, cloud_msg);
+  cloud_msg.header.stamp = rclcpp::Clock().now();
+  cloud_msg.header.frame_id = frame_id;
+  pubCloud->publish(cloud_msg);
+}
+
+void visualize_globalmap_thread(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubGlobalmap)
+{
+  while (rclcpp::ok())
+  {
+    this_thread::sleep_for(std::chrono::seconds(1));
+    auto submap_visual = backend.get_submap_visual(globalMapVisualizationSearchRadius,
+                                                   globalMapVisualizationPoseDensity,
+                                                   globalMapVisualizationLeafSize,
+                                                   showOptimizedPose);
+    if (submap_visual == nullptr)
+      continue;
+    publish_cloud(pubGlobalmap, submap_visual, "camera_init");
+  }
+}
+#endif
 
 #ifdef ROS1
 LIVMapper::LIVMapper(ros::NodeHandle &nh, const std::string &camera_config)
@@ -61,10 +121,22 @@ LIVMapper::LIVMapper(rclcpp::Node::SharedPtr &nh, const std::string &camera_conf
 #ifdef ROS1
   path_.header.stamp = ros::Time::now();
   nh.param<int>("lru_config/lru_size", lru_size, 1000000);
+  nh.param<bool>("publish/showOptimizedPose", showOptimizedPose, true);
+  nh.param<double>("publish/globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius, 1000.);
+  nh.param<double>("publish/globalMapVisualizationPoseDensity", globalMapVisualizationPoseDensity, 10.);
+  nh.param<double>("publish/globalMapVisualizationLeafSize", globalMapVisualizationLeafSize, 1.);
 #else
   path_.header.stamp = rclcpp::Clock().now();
   nh->declare_parameter("lru_config.lru_size", 1000000);
   nh->get_parameter("lru_config.lru_size", lru_size);
+  nh->declare_parameter("publish.showOptimizedPose", true);
+  nh->declare_parameter("publish.globalMapVisualizationSearchRadius", 1000.);
+  nh->declare_parameter("publish.globalMapVisualizationPoseDensity", 10.);
+  nh->declare_parameter("publish.globalMapVisualizationLeafSize", 1.);
+  nh->get_parameter("publish.showOptimizedPose", showOptimizedPose);
+  nh->get_parameter("publish.globalMapVisualizationSearchRadius", globalMapVisualizationSearchRadius);
+  nh->get_parameter("publish.globalMapVisualizationPoseDensity", globalMapVisualizationPoseDensity);
+  nh->get_parameter("publish.globalMapVisualizationLeafSize", globalMapVisualizationLeafSize);
 #endif
   voxel_map_manager_->lru_size_ = lru_size;
   vio_manager_->lru_size_ = lru_size;
@@ -549,6 +621,9 @@ void LIVMapper::InitializeSubscribersAndPublishers(
       nh.createTimer(ros::Duration(0.004), &LIVMapper::ImuPropCallback, this);
   voxel_map_manager_->voxel_map_pub_ =
       nh.advertise<visualization_msgs::MarkerArray>("/planes", 10000);
+  pubGlobalmap = nh.advertise<sensor_msgs::PointCloud2>("/map_global", 1);
+  // ros::Publisher pubLoopConstraintEdge = nh.advertise<visualization_msgs::MarkerArray>("/loop_closure_constraints", 1);
+  visualizeMapThread = std::thread(&visualize_globalmap_thread, pubGlobalmap);
 }
 #else
 void LIVMapper::InitializeSubscribersAndPublishers(
@@ -578,6 +653,8 @@ void LIVMapper::InitializeSubscribersAndPublishers(
   pub_imu_prop_odom_ = node->create_publisher<nav_msgs::msg::Odometry>("/LIVO2/imu_propagate", 10000);
   imu_prop_timer_ = node->create_wall_timer(4ms, std::bind(&LIVMapper::ImuPropCallback, this));
   voxel_map_manager_->voxel_map_pub_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("/planes", 10000);
+  pubGlobalmap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/map_global", 1);
+  visualizeMapThread = std::thread(&visualize_globalmap_thread, pubGlobalmap);
 }
 #endif
 
@@ -985,6 +1062,9 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
       }
     }
   }
+
+  if (save_globalmap_en)
+    backend.save_globalmap();
   SavePCD();
 }
 
@@ -1236,7 +1316,7 @@ void LIVMapper::LivoxCbk(const livox_ros_driver2::msg::CustomMsg::SharedPtr msg_
 #else
   double cur_head_time = to_seconds(msg->header.stamp);
 #endif
-  LOG_INFO("Get LiDAR, its header time: %.6f", cur_head_time);
+  // LOG_INFO("Get LiDAR, its header time: %.6f", cur_head_time);
   if (cur_head_time < last_timestamp_lidar_) {
     LOG_ERROR("lidar loop back, clear buffer");
     lid_raw_data_buffer_.clear();
