@@ -649,6 +649,7 @@ void LIVMapper::InitializeSubscribersAndPublishers(
   pub_laser_cloud_dyn_rmed_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/dyn_obj_removed", 100);
   pub_laser_cloud_dyn_dbg_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/dyn_obj_dbg_hist", 100);
   mavros_pose_publisher_ = node->create_publisher<geometry_msgs::msg::PoseStamped>("/mavros/vision_pose/pose", 10);
+  pub_loopConstraint_edge_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("/loop_constraint_edge", 10);
   pub_image_ = it.advertise("/rgb_img", 1);
   pub_imu_prop_odom_ = node->create_publisher<nav_msgs::msg::Odometry>("/LIVO2/imu_propagate", 10000);
   imu_prop_timer_ = node->create_wall_timer(4ms, std::bind(&LIVMapper::ImuPropCallback, this));
@@ -898,7 +899,7 @@ void LIVMapper::HandleLIO() {
     // voxelmap_manager_->PubVoxelMap();
     voxel_map_manager_->PubVoxelMapLRU();
   }
-  PublishPath(pub_path_);
+  // PublishPath(pub_path_);
   PublishMavros(mavros_pose_publisher_);
 
   frame_num_++;
@@ -1061,6 +1062,13 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
         vio_manager_->ResetVioMap();
       }
     }
+
+#ifdef ROS1
+#else
+    PublishKeyframeTrajectory(pub_path_, *backend.keyframe_pose6d_optimized);
+    VisualizeLoopClosureConstraints(pub_loopConstraint_edge_, backend.loopClosure->loop_constraint_records,
+                                    backend.loopClosure->copy_keyframe_pose6d);
+#endif
   }
 
   if (save_globalmap_en)
@@ -1983,4 +1991,94 @@ void LIVMapper::PublishPath(const rclcpp::Publisher<nav_msgs::msg::Path>::Shared
   path_.poses.push_back(msg_body_pose_);
   pub_path->publish(path_);
 }
+
+void LIVMapper::PublishKeyframeTrajectory(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &pubPath,
+                                          const pcl::PointCloud<PointXYZIRPYT> &trajectory)
+{
+  nav_msgs::msg::Path path;
+  path.header.stamp = rclcpp::Clock().now();
+  path.header.frame_id = "camera_init";
+
+  geometry_msgs::msg::PoseStamped msg_lidar_pose;
+  for (const auto &point : trajectory)
+  {
+    msg_lidar_pose.pose.position.x = point.x;
+    msg_lidar_pose.pose.position.y = point.y;
+    msg_lidar_pose.pose.position.z = point.z;
+    auto quat = EigenMath::RPY2Quaternion(V3D(point.roll, point.pitch, point.yaw));
+    msg_lidar_pose.pose.orientation.x = quat.x();
+    msg_lidar_pose.pose.orientation.y = quat.y();
+    msg_lidar_pose.pose.orientation.z = quat.z();
+    msg_lidar_pose.pose.orientation.w = quat.w();
+
+    msg_lidar_pose.header.stamp = rclcpp::Clock().now();
+    msg_lidar_pose.header.frame_id = "camera_init";
+
+    path.poses.push_back(msg_lidar_pose);
+  }
+
+  pubPath->publish(path);
+}
+
+void LIVMapper::VisualizeLoopClosureConstraints(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr &pubLoopConstraintEdge,
+                                                const unordered_map<int, int> &loop_constraint_records,
+                                                const pcl::PointCloud<PointXYZIRPYT>::Ptr keyframe_pose6d)
+{
+  if (loop_constraint_records.empty())
+    return;
+
+  visualization_msgs::msg::MarkerArray markerArray;
+  // loop nodes
+  visualization_msgs::msg::Marker markerNode;
+  markerNode.header.frame_id = "camera_init";
+  markerNode.header.stamp = rclcpp::Clock().now();
+  markerNode.action = visualization_msgs::msg::Marker::ADD;
+  markerNode.type = visualization_msgs::msg::Marker::SPHERE_LIST;
+  markerNode.ns = "loop_nodes";
+  markerNode.id = 0;
+  markerNode.pose.orientation.w = 1;
+  markerNode.scale.x = 0.3;
+  markerNode.scale.y = 0.3;
+  markerNode.scale.z = 0.3;
+  markerNode.color.r = 0;
+  markerNode.color.g = 0.8;
+  markerNode.color.b = 1;
+  markerNode.color.a = 1;
+  // loop edges
+  visualization_msgs::msg::Marker markerEdge;
+  markerEdge.header.frame_id = "camera_init";
+  markerEdge.header.stamp = rclcpp::Clock().now();
+  markerEdge.action = visualization_msgs::msg::Marker::ADD;
+  markerEdge.type = visualization_msgs::msg::Marker::LINE_LIST;
+  markerEdge.ns = "loop_edges";
+  markerEdge.id = 1;
+  markerEdge.pose.orientation.w = 1;
+  markerEdge.scale.x = 0.1;
+  markerEdge.color.r = 0.9;
+  markerEdge.color.g = 0.9;
+  markerEdge.color.b = 0;
+  markerEdge.color.a = 1;
+
+  for (auto it = loop_constraint_records.begin(); it != loop_constraint_records.end(); ++it)
+  {
+    int key_cur = it->first;
+    int key_pre = it->second;
+    geometry_msgs::msg::Point p;
+    p.x = keyframe_pose6d->points[key_cur].x;
+    p.y = keyframe_pose6d->points[key_cur].y;
+    p.z = keyframe_pose6d->points[key_cur].z;
+    markerNode.points.push_back(p);
+    markerEdge.points.push_back(p);
+    p.x = keyframe_pose6d->points[key_pre].x;
+    p.y = keyframe_pose6d->points[key_pre].y;
+    p.z = keyframe_pose6d->points[key_pre].z;
+    markerNode.points.push_back(p);
+    markerEdge.points.push_back(p);
+  }
+
+  markerArray.markers.push_back(markerNode);
+  markerArray.markers.push_back(markerEdge);
+  pubLoopConstraintEdge->publish(markerArray);
+}
+
 #endif

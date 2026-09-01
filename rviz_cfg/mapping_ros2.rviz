@@ -129,8 +129,8 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 7.434053421020508
-            Min Value: -2.904310703277588
+            Max Value: 7.664743900299072
+            Min Value: -3.367576837539673
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -188,6 +188,19 @@ Visualization Manager:
             Reliability Policy: Reliable
             Value: /path
           Value: true
+        - Class: rviz_default_plugins/MarkerArray
+          Enabled: true
+          Name: loop_constraint_edge
+          Namespaces:
+            loop_edges: true
+            loop_nodes: true
+          Topic:
+            Depth: 5
+            Durability Policy: Volatile
+            History Policy: Keep Last
+            Reliability Policy: Reliable
+            Value: /loop_constraint_edge
+          Value: true
       Enabled: true
       Name: Front
     - Alpha: 1
@@ -229,13 +242,19 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        aft_mapped:
+          Value: true
+        camera_init:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        camera_init:
+          aft_mapped:
+            {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -296,8 +315,8 @@ Visualization Manager:
       Scale: 20
       Target Frame: aft_mapped
       Value: TopDownOrtho (rviz_default_plugins)
-      X: 9.399992942810059
-      Y: 2.1500000953674316
+      X: 0
+      Y: 0
     Saved: ~
 Window Geometry:
   Displays:

@@ -26,6 +26,7 @@ which is included as part of this source code package.
 #include "IMU_Processing.h"
 #include "preprocess.h"
 #include "vio.h"
+#include "backend/Header.h"
 
 class LIVMapper {
  public:
@@ -97,6 +98,11 @@ class LIVMapper {
   void PublishOdometry(const rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr &pubOdomAftMapped);
   void PublishMavros(const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr &mavros_pose_publisher);
   void PublishPath(const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &pubPath);
+  void PublishKeyframeTrajectory(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &pubPath,
+                                 const pcl::PointCloud<PointXYZIRPYT> &trajectory);
+  void VisualizeLoopClosureConstraints(rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr &pubLoopConstraintEdge,
+                                       const unordered_map<int, int> &loop_constraint_records,
+                                       const pcl::PointCloud<PointXYZIRPYT>::Ptr keyframe_pose6d);
   cv::Mat GetImageFromMsg(const sensor_msgs::msg::Image::SharedPtr &img_msg);
 #endif
   void PublishImgRGB(const image_transport::Publisher &pubImage,
@@ -265,6 +271,7 @@ class LIVMapper {
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr mavros_pose_publisher_;
   rclcpp::TimerBase::SharedPtr imu_prop_timer_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_imu_prop_odom_;
+  rclcpp::Publisher<visualization_msgs::msg::MarkerArray>::SharedPtr pub_loopConstraint_edge_;
 #endif
 
   int frame_num_ = 0;
