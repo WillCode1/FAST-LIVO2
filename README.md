@@ -67,6 +67,9 @@ Eigen>=3.3.4, Follow [Eigen Installation](https://eigen.tuxfamily.org/index.php?
 
 OpenCV>=4.2, Follow [Opencv Installation](http://opencv.org/).
 
+Gtsam>=4.2.0, Follow [Gtsam Installation](https://github.com/borglab/gtsam).
+> cmake .. -DCMAKE_BUILD_TYPE=Release -DGTSAM_USE_SYSTEM_EIGEN=ON -DCMAKE_CXX_FLAGS="-march=native"
+
 ## 3. Build
 
 Clone the repository and catkin_make:
