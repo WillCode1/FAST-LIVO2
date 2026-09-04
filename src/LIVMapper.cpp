@@ -13,6 +13,7 @@ which is included as part of this source code package.
 #include "backend/backend/Backend.hpp"
 #include "LIVMapper.h"
 
+#include <unistd.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
 
@@ -21,9 +22,26 @@ bool showOptimizedPose = true;
 double globalMapVisualizationSearchRadius = 1000;
 double globalMapVisualizationPoseDensity = 10;
 double globalMapVisualizationLeafSize = 1;
-Backend backend;
-bool save_globalmap_en;
 std::thread visualizeMapThread;
+bool save_globalmap_en = false;
+bool save_pgm = false;
+double pgm_resolution;
+float min_z, max_z;
+Backend backend;
+
+bool flg_exit = false;
+void SigHandle(int sig)
+{
+  backend.save_trajectory();
+
+  if (save_globalmap_en)
+    backend.save_globalmap();
+
+  if (save_pgm)
+    backend.save_pgm(pgm_resolution, min_z, max_z);
+  LOG_WARN("catch sig %d", sig);
+  flg_exit = true;
+}
 #ifdef ROS1
 ros::Publisher pubGlobalmap;
 
@@ -66,7 +84,7 @@ void publish_cloud(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &
 
 void visualize_globalmap_thread(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubGlobalmap)
 {
-  while (rclcpp::ok())
+  while (!flg_exit)
   {
     this_thread::sleep_for(std::chrono::seconds(1));
     auto submap_visual = backend.get_submap_visual(globalMapVisualizationSearchRadius,
@@ -484,6 +502,10 @@ void LIVMapper::InitBackend(rclcpp::Node::SharedPtr &node, bool &save_globalmap_
   node->declare_parameter("backend.odom_loop_vaild_period", vector<double>());
   node->declare_parameter("backend.scancontext_loop_vaild_period", vector<double>());
   node->declare_parameter("official.save_globalmap_en", true);
+  node->declare_parameter("official.save_pgm", false);
+  node->declare_parameter("official.pgm_resolution", 0.05);
+  node->declare_parameter("official.min_z", -1.5f);
+  node->declare_parameter("official.max_z", 0.1f);
   node->declare_parameter("official.save_keyframe_en", true);
   node->declare_parameter("official.save_keyframe_descriptor_en", true);
   node->declare_parameter("official.save_resolution", 0.1f);
@@ -526,6 +548,10 @@ void LIVMapper::InitBackend(rclcpp::Node::SharedPtr &node, bool &save_globalmap_
   node->get_parameter("backend.scancontext_loop_vaild_period", backend.loopClosure->loop_vaild_period["scancontext"]);
 
   node->get_parameter("official.save_globalmap_en", save_globalmap_en);
+  node->get_parameter("official.save_pgm", save_pgm);
+  node->get_parameter("official.pgm_resolution", pgm_resolution);
+  node->get_parameter("official.min_z", min_z);
+  node->get_parameter("official.max_z", max_z);
   node->get_parameter("official.save_keyframe_en", backend.save_keyframe_en);
   node->get_parameter("official.save_keyframe_descriptor_en", backend.save_keyframe_descriptor_en);
   node->get_parameter("official.save_resolution", backend.save_resolution);
@@ -1023,13 +1049,17 @@ void LIVMapper::SavePCD() {
 // 主函数
 #ifdef ROS1
 void LIVMapper::Run() {
+  signal(SIGINT, SigHandle);
   ros::Rate rate(5000);
   while (ros::ok()) {
     ros::spinOnce();
 #else
 void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
+  signal(SIGINT, SigHandle);
   rclcpp::Rate rate(5000);
   while (rclcpp::ok()) {
+    if (flg_exit)
+      break;
     rclcpp::spin_some(node);
 #endif
     if (!SyncPackages(lidar_measures_)) {
@@ -1071,8 +1101,6 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
 #endif
   }
 
-  if (save_globalmap_en)
-    backend.save_globalmap();
   SavePCD();
 }
 

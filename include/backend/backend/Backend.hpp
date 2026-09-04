@@ -7,6 +7,7 @@
 #include "FactorGraphOptimization.hpp"
 #include "Relocalization.hpp"
 #include "LoopClosure.hpp"
+#include "../utility/Pcd2Pgm.hpp"
 
 class Backend
 {
@@ -97,6 +98,24 @@ public:
         octreeDownsampling(pcl_map_full, pcl_map_full, save_resolution);
         savePCDFile(globalmap_path, *pcl_map_full);
         LOG_WARN("Success save global map to %s.", globalmap_path.c_str());
+    }
+
+    void save_pgm(const double &pgm_resolution, const float &min_z, const float &max_z)
+    {
+        pcl::PointCloud<PointXYZIRPYT>::Ptr keyframe_pose6d(new pcl::PointCloud<PointXYZIRPYT>());
+        PointCloudType::Ptr global_map(new PointCloudType());
+        pcl::io::loadPCDFile(trajectory_path, *keyframe_pose6d);
+        for (auto i = 0; i < keyframe_pose6d->size(); ++i)
+        {
+            PointCloudType::Ptr keyframe_pc(new PointCloudType());
+            load_keyframe(keyframe_path, keyframe_pc, i, 6, min_z, max_z);
+            // octreeDownsampling(keyframe_pc, keyframe_pc, 0.1);
+            *global_map += *pointcloudKeyframeToWorld(keyframe_pc, (*keyframe_pose6d)[i]);
+        }
+        Pcd2Pgm mg(pgm_resolution, map_path + "/map");
+        mg.convert_from_pcd(global_map);
+        mg.convert_to_pgm();
+        LOG_WARN("Success save pgm to %s.", map_path.c_str());
     }
 
     void save_trajectory()
