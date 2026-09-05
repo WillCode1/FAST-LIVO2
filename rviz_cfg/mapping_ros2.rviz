@@ -4,7 +4,6 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
-        - /Front1
         - /TF1/Tree1
       Splitter Ratio: 0.5
     Tree Height: 544
@@ -90,7 +89,7 @@ Visualization Manager:
             Durability Policy: Volatile
             History Policy: Keep Last
             Reliability Policy: Reliable
-            Value: /hikrobot_camera/rgb
+            Value: /rgb_img
           Value: true
         - Alpha: 1
           Autocompute Intensity Bounds: true
@@ -192,8 +191,7 @@ Visualization Manager:
           Enabled: true
           Name: loop_constraint_edge
           Namespaces:
-            loop_edges: true
-            loop_nodes: true
+            {}
           Topic:
             Depth: 5
             Durability Policy: Volatile
@@ -242,19 +240,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        aft_mapped:
-          Value: true
-        camera_init:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        camera_init:
-          aft_mapped:
-            {}
+        {}
       Update Interval: 0
       Value: true
   Enabled: true
