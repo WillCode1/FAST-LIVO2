@@ -63,9 +63,6 @@ class LIVMapper {
   bool SyncPackages(LidarMeasureGroup &meas);
   void PropImuOnce(StatesGroup &imu_prop_state, const double dt, V3D acc_avr,
                    V3D angvel_avr);
-  void TransformLidar(const Eigen::Matrix3d rot, const Eigen::Vector3d t,
-                      const PointCloudXYZIN::Ptr &input_cloud,
-                      PointCloudXYZIN::Ptr &trans_cloud);
   void PointBodyToWorld(const PointXYZIN &pi, PointXYZIN &po);
   void RGBpointBodyLidarToIMU(PointXYZIN const *const pi, PointXYZIN *const po);
   void RGBpointBodyToWorld(PointXYZIN const *const pi, PointXYZIN *const po);
@@ -79,7 +76,7 @@ class LIVMapper {
                          VIOManagerPtr vio_manager);
   void PublishVisualSubMap(const ros::Publisher &pubSubVisualMap);
   void PublishEffectWorld(const ros::Publisher &pubLaserCloudEffect,
-                          const std::vector<PointToPlane> &ptpl_list);
+                          const std::vector<pointWithVar> &pv_list_);
   void PublishOdometry(const ros::Publisher &pubOdomAftMapped);
   void PublishMavros(const ros::Publisher &mavros_pose_publisher);
   void PublishPath(const ros::Publisher &pubPath);
@@ -94,7 +91,7 @@ class LIVMapper {
                          VIOManagerPtr vio_manager);
   void PublishVisualSubMap(const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &pubSubVisualMap);
   void PublishEffectWorld(const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &pubLaserCloudEffect,
-                          const std::vector<PointToPlane> &ptpl_list);
+                          const std::vector<pointWithVar> &pv_list_);
   void PublishOdometry(const rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr &pubOdomAftMapped);
   void PublishMavros(const rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr &mavros_pose_publisher);
   void PublishPath(const rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr &pubPath);
@@ -126,7 +123,7 @@ class LIVMapper {
   V3D ext_t_;
   M3D ext_r_;
 
-  int feats_down_size_ = 0, max_iterations_ = 0;
+  int max_iterations_ = 0;
 
   double res_mean_last_ = 0.05;
   double gyr_cov_ = 0, acc_cov_ = 0, inv_expo_cov_ = 0;

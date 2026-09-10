@@ -817,22 +817,14 @@ void LIVMapper::HandleLIO() {
 
   double t_down = omp_get_wtime();
 
-  feats_down_size_ = feats_down_body_->points.size();
-  voxel_map_manager_->feats_down_body_ = feats_down_body_;
-  voxel_map_manager_->feats_down_size_ = feats_down_size_;
-
   if (!lidar_map_inited_) {
-    // 第一帧，建立VoxelMap
     lidar_map_inited_ = true;
-    // voxelmap_manager_->BuildVoxelMap();
-    TransformLidar(state_.rot_end, state_.pos_end, feats_down_body_,
-                   feats_down_world_);
-    voxel_map_manager_->BuildVoxelMapLRU(feats_down_world_);
+    voxel_map_manager_->BuildVoxelMapLRU(feats_down_body_);
   }
 
   double t1 = omp_get_wtime();
   // 位姿估计
-  voxel_map_manager_->StateEstimation(state_propagat_);
+  voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_);
   state_ = voxel_map_manager_->state_;
 
   double t2 = omp_get_wtime();
@@ -881,21 +873,7 @@ void LIVMapper::HandleLIO() {
   double t3 = omp_get_wtime();
 
   // 更新VoxelMap
-  PointCloudXYZIN::Ptr world_lidar(new PointCloudXYZIN());
-  TransformLidar(state_.rot_end, state_.pos_end, feats_down_body_, world_lidar);
-  for (size_t i = 0; i < world_lidar->points.size(); i++) {
-    voxel_map_manager_->pv_list_[i].point_w << world_lidar->points[i].x,
-        world_lidar->points[i].y, world_lidar->points[i].z;
-    M3D point_crossmat = voxel_map_manager_->cross_mat_list_[i];
-    M3D var = voxel_map_manager_->body_cov_list_[i];
-    var = (state_.rot_end * ext_r_) * var *
-              (state_.rot_end * ext_r_).transpose() +
-          (-point_crossmat) * state_.cov.block<3, 3>(0, 0) *
-              (-point_crossmat).transpose() +
-          state_.cov.block<3, 3>(3, 3);
-    voxel_map_manager_->pv_list_[i].var = var;
-  }
-  // voxelmap_manager_->UpdateVoxelMap(voxelmap_manager_->pv_list_);
+  Var2World(voxel_map_manager_->pv_list_, voxel_map_manager_->state_);
   voxel_map_manager_->UpdateVoxelMapLRU(voxel_map_manager_->pv_list_);
 #ifdef PRINT_TIME
   std::cout << "[ LIO ] Update Voxel Map" << std::endl;
@@ -903,10 +881,6 @@ void LIVMapper::HandleLIO() {
   pv_list_ = voxel_map_manager_->pv_list_;
 
   double t4 = omp_get_wtime();
-
-  if (voxel_map_manager_->config_setting_.map_sliding_en) {
-    voxel_map_manager_->MapSliding();
-  }
 
   PointCloudXYZIN::Ptr laserCloudFullRes(dense_map_en ? feats_undistort_
                                                       : feats_down_body_);
@@ -919,8 +893,8 @@ void LIVMapper::HandleLIO() {
   *pcl_w_wait_pub_ = *cloud_world;
 
   if (!img_en_) PublishFrameWorld(pubLaser_cloud_full_res_, vio_manager_);
-  if (pub_effect_point_en_)
-    PublishEffectWorld(pub_laser_cloud_effect_, voxel_map_manager_->ptpl_list_);
+  // if (pub_effect_point_en_)
+    // PublishEffectWorld(pub_laser_cloud_effect_, voxel_map_manager_->pv_list_);
   if (voxel_map_manager_->config_setting_.is_pub_plane_map_) {
     // voxelmap_manager_->PubVoxelMap();
     voxel_map_manager_->PubVoxelMapLRU();
@@ -1083,11 +1057,9 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
         pose2state(this_pose6d, state_, ext_r_, ext_t_);
         downSize_filter_surf_.setInputCloud(feats_undistort_);
         downSize_filter_surf_.filter(*feats_down_body_);
-        TransformLidar(state_.rot_end, state_.pos_end, feats_down_body_, feats_down_world_);
 
         voxel_map_manager_->state_ = state_;
-        voxel_map_manager_->feats_down_body_ = feats_down_body_;
-        voxel_map_manager_->RebuildVoxelMapLRU(feats_down_world_);
+        voxel_map_manager_->RebuildVoxelMapLRU(feats_down_body_);
         // voxel_map_manager_->UpdateVoxelMapLRU(submap_fix);
         vio_manager_->ResetVioMap();
       }
@@ -1215,25 +1187,6 @@ void LIVMapper::ImuPropCallback() {
 #endif
   }
   mtx_buffer_imu_prop_.unlock();
-}
-
-void LIVMapper::TransformLidar(const Eigen::Matrix3d rot,
-                               const Eigen::Vector3d t,
-                               const PointCloudXYZIN::Ptr &input_cloud,
-                               PointCloudXYZIN::Ptr &trans_cloud) {
-  PointCloudXYZIN().swap(*trans_cloud);
-  trans_cloud->reserve(input_cloud->size());
-  for (size_t i = 0; i < input_cloud->size(); i++) {
-    pcl::PointXYZINormal p_c = input_cloud->points[i];
-    Eigen::Vector3d p(p_c.x, p_c.y, p_c.z);
-    p = (rot * (ext_r_ * p + ext_t_) + t);
-    PointXYZIN pi;
-    pi.x = p(0);
-    pi.y = p(1);
-    pi.z = p(2);
-    pi.intensity = p_c.intensity;
-    trans_cloud->points.push_back(pi);
-  }
 }
 
 void LIVMapper::PointBodyToWorld(const PointXYZIN &pi, PointXYZIN &po) {
@@ -1910,13 +1863,13 @@ void LIVMapper::PublishEffectWorld(const ros::Publisher &pub_cloud_effect,
 #else
 void LIVMapper::PublishEffectWorld(const rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &pub_cloud_effect,
 #endif
-                                   const std::vector<PointToPlane> &ptpl_list) {
-  int effect_feat_num = ptpl_list.size();
+                                   const std::vector<pointWithVar> &pv_list_) {
+  int effect_feat_num = pv_list_.size();
   PointCloudXYZIN::Ptr laserCloudWorld(new PointCloudXYZIN(effect_feat_num, 1));
   for (int i = 0; i < effect_feat_num; i++) {
-    laserCloudWorld->points[i].x = ptpl_list[i].point_w_[0];
-    laserCloudWorld->points[i].y = ptpl_list[i].point_w_[1];
-    laserCloudWorld->points[i].z = ptpl_list[i].point_w_[2];
+    laserCloudWorld->points[i].x = pv_list_[i].point_w[0];
+    laserCloudWorld->points[i].y = pv_list_[i].point_w[1];
+    laserCloudWorld->points[i].z = pv_list_[i].point_w[2];
   }
 #ifdef ROS1
   sensor_msgs::PointCloud2 cloud_full_res;

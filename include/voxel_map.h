@@ -60,20 +60,6 @@ typedef struct VoxelMapConfig {
   int half_map_size;
 } VoxelMapConfig;
 
-typedef struct PointToPlane {
-  Eigen::Vector3d point_b_;
-  Eigen::Vector3d point_w_;
-  Eigen::Vector3d normal_;
-  Eigen::Vector3d center_;
-  Eigen::Matrix<double, 6, 6> plane_var_;
-  M3D body_cov_;
-  int layer_;
-  double d_;
-  double eigen_value_;
-  bool is_valid_;
-  float dis_to_plane_;
-} PointToPlane;
-
 typedef struct VoxelPlane {
   Eigen::Vector3d center_;
   Eigen::Vector3d normal_;
@@ -132,8 +118,7 @@ struct DS_POINT {
   int count = 0;
 };
 
-void CalcBodyCov(Eigen::Vector3d &pb, const float range_inc,
-                 const float degree_inc, Eigen::Matrix3d &cov);
+void Var2World(std::vector<pointWithVar> &pvs, StatesGroup &x_curr);
 
 class VoxelOctoTree {
  public:
@@ -190,7 +175,10 @@ class VoxelOctoTree {
   void UpdateOctoTree(const pointWithVar &pv);
 
   VoxelOctoTree *FindCorrespond(Eigen::Vector3d pw);
-  VoxelOctoTree *Insert(const pointWithVar &pv);
+
+  bool inside(Eigen::Vector3d &pw);
+
+  int Match(Eigen::Vector3d &wld, VoxelPlane *&pla, double &max_prob, Eigen::Matrix3d &var_wld, double &sigma_d, VoxelOctoTree *&oc);
 };
 using VMData = std::pair<VOXEL_LOCATION, VoxelOctoTree *>;
 
@@ -207,7 +195,6 @@ class VoxelMapManager {
   VoxelMapManager(VoxelMapConfig &config_setting);
 
   VoxelMapConfig config_setting_;
-  int current_frame_id_ = 0;
 #ifdef ROS1
   ros::Publisher voxel_map_pub_;
 #else
@@ -220,7 +207,6 @@ class VoxelMapManager {
   int lru_size_ = 1000000;
 
   int undistort_size_ = 0;
-  PointCloudXYZIN::Ptr feats_down_body_;
 
   M3D extR_;
   V3D extT_;
@@ -229,55 +215,29 @@ class VoxelMapManager {
   float ave_ekf_time_ = 0.0;
   int scan_count_ = 0;
   StatesGroup state_;
-  V3D position_last_;
 
   V3D last_slide_position_ = {0, 0, 0};
 
-  int feats_down_size_;
   int effct_feat_num_;
-  std::vector<M3D> cross_mat_list_;
-  std::vector<M3D> body_cov_list_;
   std::vector<pointWithVar> pv_list_;
-  std::vector<PointToPlane> ptpl_list_;
 
-  void StateEstimation(StatesGroup &state_propagat);
+  int Match(Eigen::Vector3d &wld, VoxelPlane *&plane, Eigen::Matrix3d &var_wld, double &sigma_d, VoxelOctoTree *&oc);
 
-  void TransformLidar(const Eigen::Matrix3d rot, const Eigen::Vector3d t,
-                      const PointCloudXYZIN::Ptr &input_cloud,
-                      pcl::PointCloud<pcl::PointXYZI>::Ptr &trans_cloud);
+  void StateEstimation(StatesGroup &state_propagat, const PointCloudXYZIN::Ptr &cloud_body);
 
   // void BuildVoxelMap();
 
-  void BuildVoxelMapLRU();
+  void BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body);
 
-  void BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_world);
-
-  void RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_world);
-
-  V3F RGBFromVoxel(const V3D &input_point);
+  void RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body);
 
   // void UpdateVoxelMap(const std::vector<pointWithVar> &input_points);
 
   void UpdateVoxelMapLRU(const std::vector<pointWithVar> &input_points);
 
-  // void BuildResidualListOMP(std::vector<pointWithVar> &pv_list,
-  //                           std::vector<PointToPlane> &ptpl_list);
-
-  void BuildResidualListLRU(std::vector<pointWithVar> &pv_list,
-                            std::vector<PointToPlane> &ptpl_list);
-
-  void BuildSingleResidual(pointWithVar &pv, const VoxelOctoTree *current_octo,
-                           const int current_layer, bool &is_sucess,
-                           double &prob, PointToPlane &single_ptpl);
-
   // void PubVoxelMap();
 
   void PubVoxelMapLRU();
-
-  void MapSliding();
-
-  void ClearMemOutOfMap(const int &x_max, const int &x_min, const int &y_max,
-                        const int &y_min, const int &z_max, const int &z_min);
 
  private:
   void GetUpdatePlane(const VoxelOctoTree *current_octo,
