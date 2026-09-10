@@ -112,12 +112,6 @@ struct hash<VOXEL_LOCATION> {
 };
 }  // namespace std
 
-struct DS_POINT {
-  float xyz[3];
-  float intensity;
-  int count = 0;
-};
-
 void Var2World(std::vector<pointWithVar> &pvs, StatesGroup &x_curr);
 
 class VoxelOctoTree {
@@ -160,9 +154,9 @@ class VoxelOctoTree {
   }
 
   ~VoxelOctoTree() {
-    for (int i = 0; i < 8; i++) {
-      delete leaves_[i];
-    }
+    for (int i = 0; i < 8; i++)
+      if (leaves_[i] != nullptr)
+        delete leaves_[i];
     delete plane_ptr_;
   }
 
