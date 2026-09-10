@@ -12,7 +12,7 @@ which is included as part of this source code package.
 
 #include "backend/backend/Backend.hpp"
 #include "LIVMapper.h"
-
+#include <csignal>
 #include <unistd.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>

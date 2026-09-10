@@ -15,7 +15,7 @@ extrin_calib:
 
 time_offset: 
   imu_time_offset: 0.0
-  img_time_offset: 0.1
+  img_time_offset: 0.0
   exposure_time_init: 0.0
 
 preprocess:
@@ -23,7 +23,7 @@ preprocess:
   filter_size_surf: 0.1 
   lidar_type: 1 # Livox Avia LiDAR
   scan_line: 6
-  blind: 0.8
+  blind: 0.6
 
 vio:
   max_iterations: 5
@@ -49,7 +49,7 @@ lio:
   dept_err: 0.02
   beam_err: 0.05
   min_eigen_value: 0.0025 # 0.005
-  voxel_size: 0.5
+  voxel_size: 0.4
   max_layer: 2
   max_points_num: 50
   layer_init_num: [5, 5, 5, 5, 5]
