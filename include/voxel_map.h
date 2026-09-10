@@ -202,28 +202,22 @@ class VoxelMapManager {
 #endif
   // std::unordered_map<VOXEL_LOCATION, VoxelOctoTree *> voxel_map_;
   std::list<VMData> vm_data_;
-  std::unordered_map<VOXEL_LOCATION, typename std::list<VMData>::iterator>
-      vm_map_;
+  std::unordered_map<VOXEL_LOCATION, typename std::list<VMData>::iterator> vm_map_;
   int lru_size_ = 1000000;
-
-  int undistort_size_ = 0;
 
   M3D extR_;
   V3D extT_;
-  float build_residual_time_, ekf_time_;
-  float ave_build_residual_time_ = 0.0;
-  float ave_ekf_time_ = 0.0;
-  int scan_count_ = 0;
   StatesGroup state_;
 
-  V3D last_slide_position_ = {0, 0, 0};
-
+  int degrade_cnt_ = 0;
+  int degrade_bound_ = 10;
+  double degrade_eigval_ = 14;
   int effct_feat_num_;
   std::vector<pointWithVar> pv_list_;
 
   int Match(Eigen::Vector3d &wld, VoxelPlane *&plane, Eigen::Matrix3d &var_wld, double &sigma_d, VoxelOctoTree *&oc);
 
-  void StateEstimation(StatesGroup &state_propagat, const PointCloudXYZIN::Ptr &cloud_body);
+  bool StateEstimation(StatesGroup &state_propagat, const PointCloudXYZIN::Ptr &cloud_body);
 
   // void BuildVoxelMap();
 

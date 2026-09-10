@@ -717,7 +717,6 @@ void LIVMapper::ProcessImu() {
 
   state_propagat_ = state_;
   voxel_map_manager_->state_ = state_;
-  voxel_map_manager_->undistort_size_ = feats_undistort_->size();
 }
 
 void LIVMapper::StateEstimationAndMapping() {
@@ -824,7 +823,9 @@ void LIVMapper::HandleLIO() {
 
   double t1 = omp_get_wtime();
   // 位姿估计
-  voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_);
+  if (!voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_))
+    LOG_WARN("Maybe Lidar degradation!");
+
   state_ = voxel_map_manager_->state_;
 
   double t2 = omp_get_wtime();
@@ -893,12 +894,13 @@ void LIVMapper::HandleLIO() {
   *pcl_w_wait_pub_ = *cloud_world;
 
   if (!img_en_) PublishFrameWorld(pubLaser_cloud_full_res_, vio_manager_);
-  // if (pub_effect_point_en_)
-    // PublishEffectWorld(pub_laser_cloud_effect_, voxel_map_manager_->pv_list_);
-  if (voxel_map_manager_->config_setting_.is_pub_plane_map_) {
+#if 0
+  if (pub_effect_point_en_)
+    PublishEffectWorld(pub_laser_cloud_effect_, voxel_map_manager_->pv_list_);
+  if (voxel_map_manager_->config_setting_.is_pub_plane_map_)
     // voxelmap_manager_->PubVoxelMap();
     voxel_map_manager_->PubVoxelMapLRU();
-  }
+#endif
   // PublishPath(pub_path_);
   PublishMavros(mavros_pose_publisher_);
 

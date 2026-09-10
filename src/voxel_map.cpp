@@ -409,9 +409,15 @@ int VoxelOctoTree::Match(Eigen::Vector3d &wld, VoxelPlane *&pla, double &max_pro
         sigma_l += plane_ptr_->normal_.transpose() * var_wld * plane_ptr_->normal_;
         if (dis_to_plane < 3 * sqrt(sigma_l))
         {
-          oc = this;
-          sigma_d = sigma_l;
-          pla = plane_ptr_;
+          float prob = 1 / (sqrt(sigma_l)) * exp(-0.5 * dis_to_plane * dis_to_plane / sigma_l);
+          if(prob > max_prob)
+          {
+            oc = this;
+            sigma_d = sigma_l;
+            max_prob = prob;
+            pla = plane_ptr_;
+          }
+
           flag = 1;
         }
       }
@@ -463,7 +469,7 @@ int VoxelMapManager::Match(Eigen::Vector3d &wld, VoxelPlane *&plane, Eigen::Matr
   return flag;
 }
 
-void VoxelMapManager::StateEstimation(StatesGroup &state_propagat, const PointCloudXYZIN::Ptr &cloud_body)
+bool VoxelMapManager::StateEstimation(StatesGroup &state_propagat, const PointCloudXYZIN::Ptr &cloud_body)
 {
   int feats_down_size = cloud_body->points.size();
   std::vector<pointWithVar>().swap(pv_list_);
@@ -568,6 +574,24 @@ void VoxelMapManager::StateEstimation(StatesGroup &state_propagat, const PointCl
     if (EKF_stop_flg)
       break;
   }
+
+  // Degeneration detection: eigenvalue threshold = 14
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3d> saes(nnt);
+  Eigen::Vector3d evalue = saes.eigenvalues();
+  // printf("eva %d: %lf\n", match_num, evalue[0]);
+
+  if (evalue[0] >= degrade_eigval_)
+  {
+    if (degrade_cnt_ > 0)
+      degrade_cnt_--;
+  }
+  else
+    degrade_cnt_++;
+
+  if (degrade_cnt_ > degrade_bound_)
+    return false;
+  else
+    return true;
 }
 
 void VoxelMapManager::BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body)
