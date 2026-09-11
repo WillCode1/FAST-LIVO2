@@ -115,8 +115,9 @@ struct hash<VOXEL_LOCATION> {
 void Var2World(std::vector<pointWithVar> &pvs, StatesGroup &x_curr);
 
 class VoxelOctoTree {
- public:
+public:
   VoxelOctoTree() = default;
+  PointCluster pcr_add_;                     // Total statistics
   std::vector<pointWithVar> temp_points_;
   VoxelPlane *plane_ptr_;
   int layer_;
@@ -221,7 +222,7 @@ class VoxelMapManager {
 
   // void UpdateVoxelMap(const std::vector<pointWithVar> &input_points);
 
-  void UpdateVoxelMapLRU(const std::vector<pointWithVar> &input_points);
+  void UpdateVoxelMapLRU(std::vector<pointWithVar> &input_points);
 
   // void PubVoxelMap();
 

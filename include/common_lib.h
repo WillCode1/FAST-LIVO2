@@ -95,6 +95,60 @@ struct LidarMeasureGroup {
   };
 };
 
+class PointCluster
+{
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  Eigen::Matrix3d P;
+  Eigen::Vector3d v;
+  int N;
+
+  PointCluster()
+  {
+    P.setZero();
+    v.setZero();
+    N = 0;
+  }
+
+  void clear()
+  {
+    P.setZero();
+    v.setZero();
+    N = 0;
+  }
+
+  void push(const Eigen::Vector3d &vec)
+  {
+    N++;
+    P += vec * vec.transpose();
+    v += vec;
+  }
+
+  Eigen::Matrix3d cov()
+  {
+    Eigen::Vector3d center = v / N;
+    return P/N - center*center.transpose();
+  }
+
+  PointCluster & operator+=(const PointCluster &sigv)
+  {
+    this->P += sigv.P;
+    this->v += sigv.v;
+    this->N += sigv.N;
+
+    return *this;
+  }
+
+  PointCluster & operator-=(const PointCluster &sigv)
+  {
+    this->P -= sigv.P;
+    this->v -= sigv.v;
+    this->N -= sigv.N;
+
+    return *this;
+  }
+};
+
 typedef struct pointWithVar {
   Eigen::Vector3d point_i;      // point in the imu body frame
   Eigen::Vector3d point_w;      // point in the world frame

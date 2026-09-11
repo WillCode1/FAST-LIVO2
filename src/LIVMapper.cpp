@@ -874,7 +874,6 @@ void LIVMapper::HandleLIO() {
   double t3 = omp_get_wtime();
 
   // 更新VoxelMap
-  Var2World(voxel_map_manager_->pv_list_, voxel_map_manager_->state_);
   voxel_map_manager_->UpdateVoxelMapLRU(voxel_map_manager_->pv_list_);
 #ifdef PRINT_TIME
   std::cout << "[ LIO ] Update Voxel Map" << std::endl;
