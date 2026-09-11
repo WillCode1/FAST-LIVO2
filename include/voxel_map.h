@@ -40,8 +40,6 @@ which is included as part of this source code package.
 
 // #define PRINT_TIME
 
-static int voxel_plane_id = 0;
-
 typedef struct VoxelMapConfig {
   double max_voxel_size_;
   int max_layer_;
@@ -63,20 +61,12 @@ typedef struct VoxelMapConfig {
 typedef struct VoxelPlane {
   Eigen::Vector3d center_;
   Eigen::Vector3d normal_;
-  Eigen::Vector3d y_normal_;
-  Eigen::Vector3d x_normal_;
   Eigen::Matrix3d covariance_;
   Eigen::Matrix<double, 6, 6> plane_var_;
   float radius_ = 0;
-  float min_eigen_value_ = 1;
-  float mid_eigen_value_ = 1;
-  float max_eigen_value_ = 1;
   float d_ = 0;
   int points_size_ = 0;
   bool is_plane_ = false;
-  bool is_init_ = false;
-  int id_ = 0;
-  bool is_update_ = false;
   VoxelPlane() {
     plane_var_ = Eigen::Matrix<double, 6, 6>::Zero();
     covariance_ = Eigen::Matrix3d::Zero();
@@ -91,6 +81,20 @@ class VOXEL_LOCATION {
 
   VOXEL_LOCATION(int64_t vx = 0, int64_t vy = 0, int64_t vz = 0)
       : x(vx), y(vy), z(vz) {}
+
+  VOXEL_LOCATION(const Eigen::Vector3d &wld, float voxel_size)
+  {
+    float loc_xyz[3];
+    for (int j = 0; j < 3; j++) {
+      loc_xyz[j] = wld[j] / voxel_size;
+      if (loc_xyz[j] < 0) {
+        loc_xyz[j] -= 1.0;
+      }
+    }
+    x = (int64_t)loc_xyz[0];
+    y = (int64_t)loc_xyz[1];
+    z = (int64_t)loc_xyz[2];
+  }
 
   bool operator==(const VOXEL_LOCATION &other) const {
     return (x == other.x && y == other.y && z == other.z);
@@ -135,6 +139,8 @@ public:
   bool init_octo_;
   bool update_enable_;
 
+  std::mutex mVox;
+
   VoxelOctoTree(int max_layer, int layer, int points_size_threshold,
                 int max_points_num, float planer_threshold)
       : max_layer_(max_layer),
@@ -169,7 +175,27 @@ public:
 
   void UpdateOctoTree(const pointWithVar &pv);
 
-  VoxelOctoTree *FindCorrespond(Eigen::Vector3d pw);
+  VoxelOctoTree *FindCorrespond(const Eigen::Vector3d &pw);
+
+  void push(const pointWithVar &pv)
+  {
+    mVox.lock();
+    if (layer_ < max_layer_)
+    {
+      temp_points_.push_back(pv);
+      new_points_++;
+    }
+    pcr_add_.push(pv.point_w);
+    mVox.unlock();
+  }
+
+  int CalculateLeafnum(const Eigen::Vector3d &pw, int *xyz)
+  {
+    for (int k = 0; k < 3; k++)
+      if (pw[k] > voxel_center_[k])
+        xyz[k] = 1;
+    return 4 * xyz[0] + 2 * xyz[1] + xyz[2];
+  }
 
   bool inside(Eigen::Vector3d &pw);
 

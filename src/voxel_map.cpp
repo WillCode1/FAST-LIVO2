@@ -157,15 +157,9 @@ void VoxelOctoTree::InitPlane(const std::vector<pointWithVar> &points,
   Eigen::Matrix3f::Index evalsMin, evalsMax;
   evalsReal.rowwise().sum().minCoeff(&evalsMin);
   evalsReal.rowwise().sum().maxCoeff(&evalsMax);
-  int evalsMid = 3 - evalsMin - evalsMax;
-  Eigen::Vector3d evecMin = evecs.real().col(evalsMin);
-  Eigen::Vector3d evecMid = evecs.real().col(evalsMid);
-  Eigen::Vector3d evecMax = evecs.real().col(evalsMax);
   Eigen::Matrix3d J_Q;
   J_Q << 1.0 / plane->points_size_, 0, 0, 0, 1.0 / plane->points_size_, 0, 0, 0,
       1.0 / plane->points_size_;
-  // && evalsReal(evalsMid) > 0.05
-  //&& evalsReal(evalsMid) > 0.01
   if (evalsReal(evalsMin) < planer_threshold_) {
     for (int i = 0; i < points.size(); i++) {
       Eigen::Matrix<double, 6, 3> J;
@@ -191,26 +185,12 @@ void VoxelOctoTree::InitPlane(const std::vector<pointWithVar> &points,
 
     plane->normal_ << evecs.real()(0, evalsMin), evecs.real()(1, evalsMin),
         evecs.real()(2, evalsMin);
-    plane->y_normal_ << evecs.real()(0, evalsMid), evecs.real()(1, evalsMid),
-        evecs.real()(2, evalsMid);
-    plane->x_normal_ << evecs.real()(0, evalsMax), evecs.real()(1, evalsMax),
-        evecs.real()(2, evalsMax);
-    plane->min_eigen_value_ = evalsReal(evalsMin);
-    plane->mid_eigen_value_ = evalsReal(evalsMid);
-    plane->max_eigen_value_ = evalsReal(evalsMax);
     plane->radius_ = sqrt(evalsReal(evalsMax));
     plane->d_ = -(plane->normal_(0) * plane->center_(0) +
                   plane->normal_(1) * plane->center_(1) +
                   plane->normal_(2) * plane->center_(2));
     plane->is_plane_ = true;
-    plane->is_update_ = true;
-    if (!plane->is_init_) {
-      plane->id_ = voxel_plane_id;
-      voxel_plane_id++;
-      plane->is_init_ = true;
-    }
   } else {
-    plane->is_update_ = true;
     plane->is_plane_ = false;
   }
 }
@@ -242,16 +222,7 @@ void VoxelOctoTree::CutOctoTree() {
   }
   for (size_t i = 0; i < temp_points_.size(); i++) {
     int xyz[3] = {0, 0, 0};
-    if (temp_points_[i].point_w[0] > voxel_center_[0]) {
-      xyz[0] = 1;
-    }
-    if (temp_points_[i].point_w[1] > voxel_center_[1]) {
-      xyz[1] = 1;
-    }
-    if (temp_points_[i].point_w[2] > voxel_center_[2]) {
-      xyz[2] = 1;
-    }
-    int leafnum = 4 * xyz[0] + 2 * xyz[1] + xyz[2];
+    int leafnum = CalculateLeafnum(temp_points_[i].point_w, xyz);
     if (leaves_[leafnum] == nullptr) {
       leaves_[leafnum] =
           new VoxelOctoTree(max_layer_, layer_ + 1, layer_init_num_[layer_ + 1],
@@ -265,8 +236,7 @@ void VoxelOctoTree::CutOctoTree() {
           voxel_center_[2] + (2 * xyz[2] - 1) * quater_length_;
       leaves_[leafnum]->quater_length_ = quater_length_ / 2;
     }
-    leaves_[leafnum]->temp_points_.push_back(temp_points_[i]);
-    leaves_[leafnum]->new_points_++;
+    leaves_[leafnum]->push(temp_points_[i]);
   }
   for (uint i = 0; i < 8; i++) {
     if (leaves_[i] != nullptr) {
@@ -294,16 +264,14 @@ void VoxelOctoTree::CutOctoTree() {
 
 void VoxelOctoTree::UpdateOctoTree(const pointWithVar &pv) {
   if (!init_octo_) {
-    new_points_++;
-    temp_points_.push_back(pv);
+    push(pv);
     if (temp_points_.size() > points_size_threshold_) {
       InitOctoTree();
     }
   } else {
     if (plane_ptr_->is_plane_) {
       if (update_enable_) {
-        new_points_++;
-        temp_points_.push_back(pv);
+        push(pv);
         if (new_points_ > update_size_threshold_) {
           InitPlane(temp_points_, plane_ptr_);
           new_points_ = 0;
@@ -317,16 +285,7 @@ void VoxelOctoTree::UpdateOctoTree(const pointWithVar &pv) {
     } else {
       if (layer_ < max_layer_) {
         int xyz[3] = {0, 0, 0};
-        if (pv.point_w[0] > voxel_center_[0]) {
-          xyz[0] = 1;
-        }
-        if (pv.point_w[1] > voxel_center_[1]) {
-          xyz[1] = 1;
-        }
-        if (pv.point_w[2] > voxel_center_[2]) {
-          xyz[2] = 1;
-        }
-        int leafnum = 4 * xyz[0] + 2 * xyz[1] + xyz[2];
+        int leafnum = CalculateLeafnum(pv.point_w, xyz);
         if (leaves_[leafnum] != nullptr) {
           leaves_[leafnum]->UpdateOctoTree(pv);
         } else {
@@ -345,8 +304,7 @@ void VoxelOctoTree::UpdateOctoTree(const pointWithVar &pv) {
         }
       } else {
         if (update_enable_) {
-          new_points_++;
-          temp_points_.push_back(pv);
+          push(pv);
           if (new_points_ > update_size_threshold_) {
             InitPlane(temp_points_, plane_ptr_);
             new_points_ = 0;
@@ -362,17 +320,13 @@ void VoxelOctoTree::UpdateOctoTree(const pointWithVar &pv) {
   }
 }
 
-VoxelOctoTree *VoxelOctoTree::FindCorrespond(Eigen::Vector3d pw) {
+VoxelOctoTree *VoxelOctoTree::FindCorrespond(const Eigen::Vector3d &pw)
+{
   if (!init_octo_ || plane_ptr_->is_plane_ || (layer_ >= max_layer_))
     return this;
 
   int xyz[3] = {0, 0, 0};
-  xyz[0] = pw[0] > voxel_center_[0] ? 1 : 0;
-  xyz[1] = pw[1] > voxel_center_[1] ? 1 : 0;
-  xyz[2] = pw[2] > voxel_center_[2] ? 1 : 0;
-  int leafnum = 4 * xyz[0] + 2 * xyz[1] + xyz[2];
-
-  // printf("leafnum: %d. \n", leafnum);
+  int leafnum = CalculateLeafnum(pw, xyz);
 
   return (leaves_[leafnum] != nullptr) ? leaves_[leafnum]->FindCorrespond(pw)
                                        : this;
@@ -426,11 +380,7 @@ int VoxelOctoTree::Match(Eigen::Vector3d &wld, VoxelPlane *&pla, double &max_pro
   else
   {
     int xyz[3] = {0, 0, 0};
-    for (int k = 0; k < 3; k++)
-      if (wld[k] > voxel_center_[k])
-        xyz[k] = 1;
-    int leafnum = 4 * xyz[0] + 2 * xyz[1] + xyz[2];
-
+    int leafnum = CalculateLeafnum(wld, xyz);
     if (leaves_[leafnum] != nullptr)
       flag = leaves_[leafnum]->Match(wld, pla, max_prob, var_wld, sigma_d, oc);
   }
@@ -446,15 +396,8 @@ VoxelMapManager::VoxelMapManager(VoxelMapConfig &config_setting)
 int VoxelMapManager::Match(Eigen::Vector3d &wld, VoxelPlane *&plane, Eigen::Matrix3d &var_wld, double &sigma_d, VoxelOctoTree *&oc)
 {
   int flag = 0;
-  float loc[3];
   double voxel_size = config_setting_.max_voxel_size_;
-  for (int j = 0; j < 3; j++)
-  {
-    loc[j] = wld[j] / voxel_size;
-    if (loc[j] < 0)
-      loc[j] -= 1;
-  }
-  VOXEL_LOCATION position(loc[0], loc[1], loc[2]);
+  VOXEL_LOCATION position(wld, voxel_size);
   auto iter = vm_map_.find(position);
   if (iter != vm_map_.end())
   {
@@ -608,15 +551,7 @@ void VoxelMapManager::UpdateVoxelMapLRU(std::vector<pointWithVar> &input_points)
   uint plsize = input_points.size();
   for (uint i = 0; i < plsize; i++) {
     const pointWithVar p_v = input_points[i];
-    float loc_xyz[3];
-    for (int j = 0; j < 3; j++) {
-      loc_xyz[j] = p_v.point_w[j] / voxel_size;
-      if (loc_xyz[j] < 0) {
-        loc_xyz[j] -= 1.0;
-      }
-    }
-    VOXEL_LOCATION position((int64_t)loc_xyz[0], (int64_t)loc_xyz[1],
-                            (int64_t)loc_xyz[2]);
+    VOXEL_LOCATION position(p_v.point_w, voxel_size);
     auto iter = vm_map_.find(position);
     if (iter != vm_map_.end()) {
       vm_map_[position]->second->UpdateOctoTree(p_v);
@@ -637,15 +572,12 @@ void VoxelMapManager::UpdateVoxelMapLRU(std::vector<pointWithVar> &input_points)
         vm_data_.pop_back();
       }
 
-      vm_map_[position]->second->quater_length_ = voxel_size / 4;
-      vm_map_[position]->second->voxel_center_[0] =
-          (0.5 + position.x) * voxel_size;
-      vm_map_[position]->second->voxel_center_[1] =
-          (0.5 + position.y) * voxel_size;
-      vm_map_[position]->second->voxel_center_[2] =
-          (0.5 + position.z) * voxel_size;
-      vm_map_[position]->second->layer_init_num_ = layer_init_num;
-      vm_map_[position]->second->UpdateOctoTree(p_v);
+      octo_tree->quater_length_ = voxel_size / 4;
+      octo_tree->voxel_center_[0] = (0.5 + position.x) * voxel_size;
+      octo_tree->voxel_center_[1] = (0.5 + position.y) * voxel_size;
+      octo_tree->voxel_center_[2] = (0.5 + position.z) * voxel_size;
+      octo_tree->layer_init_num_ = layer_init_num;
+      octo_tree->UpdateOctoTree(p_v);
     }
   }
 }
@@ -665,20 +597,11 @@ void VoxelMapManager::BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body)
   uint plsize = input_points.size();
   for (uint i = 0; i < plsize; i++) {
     const pointWithVar p_v = input_points[i];
-    float loc_xyz[3];
-    for (int j = 0; j < 3; j++) {
-      loc_xyz[j] = p_v.point_w[j] / voxel_size;
-      if (loc_xyz[j] < 0) {
-        loc_xyz[j] -= 1.0;
-      }
-    }
-    VOXEL_LOCATION position((int64_t)loc_xyz[0], (int64_t)loc_xyz[1],
-                            (int64_t)loc_xyz[2]);
+    VOXEL_LOCATION position(p_v.point_w, voxel_size);
     auto iter = vm_map_.find(position);
     if (iter != vm_map_.end()) {
       // 体素已存在
-      vm_map_[position]->second->temp_points_.push_back(p_v);
-      vm_map_[position]->second->new_points_++;
+      vm_map_[position]->second->push(p_v);
       // 更新的放至最前
       vm_data_.splice(vm_data_.begin(), vm_data_, iter->second);
       iter->second = vm_data_.begin();
@@ -686,18 +609,15 @@ void VoxelMapManager::BuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body)
       // 体素不存在
       VoxelOctoTree *octo_tree = new VoxelOctoTree(
           max_layer, 0, layer_init_num[0], max_points_num, planer_threshold);
+      octo_tree->quater_length_ = voxel_size / 4;
+      octo_tree->voxel_center_[0] = (0.5 + position.x) * voxel_size;
+      octo_tree->voxel_center_[1] = (0.5 + position.y) * voxel_size;
+      octo_tree->voxel_center_[2] = (0.5 + position.z) * voxel_size;
+      octo_tree->layer_init_num_ = layer_init_num;
+      octo_tree->push(p_v);
+
       vm_data_.push_front({position, {octo_tree}});
       vm_map_.insert({position, vm_data_.begin()});
-      vm_map_[position]->second->quater_length_ = voxel_size / 4;
-      vm_map_[position]->second->voxel_center_[0] =
-          (0.5 + position.x) * voxel_size;
-      vm_map_[position]->second->voxel_center_[1] =
-          (0.5 + position.y) * voxel_size;
-      vm_map_[position]->second->voxel_center_[2] =
-          (0.5 + position.z) * voxel_size;
-      vm_map_[position]->second->temp_points_.push_back(p_v);
-      vm_map_[position]->second->new_points_++;
-      vm_map_[position]->second->layer_init_num_ = layer_init_num;
 
       // LRU
       if (vm_data_.size() >= lru_size_) {
