@@ -97,7 +97,7 @@ fast_livo2:
             interval: 1
 
         lru_config:
-            lru_size: 100000
+            lru_size: 1000000
 
         backend:
             keyframe_add_dist_threshold: 1.
