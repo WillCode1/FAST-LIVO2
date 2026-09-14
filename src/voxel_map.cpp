@@ -475,6 +475,7 @@ bool VoxelMapManager::StateEstimation(StatesGroup &state_propagat, const PointCl
         HTH += R_inv * jac * jac.transpose();
         HTz -= R_inv * jac * resi;
         nnt += pp.normal_ * pp.normal_.transpose();
+        pv.normal = pp.normal_;
       }
     }
 
