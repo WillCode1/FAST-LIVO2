@@ -1,0 +1,164 @@
+fast_livo2:
+    ros__parameters:
+        common:
+            img_topic: "/hikrobot_camera/rgb"
+            lid_topic: "/livox/lidar"
+            imu_topic: "/livox/imu"
+            img_en: 1
+            ros_driver_bug_fix: false
+
+        extrin_calib:
+            # lidar -> imu = lidar->base * base->imu
+            extrinsic_T: [ -0.011, -0.02329, 0.04412 ]
+            extrinsic_R: [ 1., 0., 0.,
+                           0., 1., 0.,
+                           0., 0., 1. ]
+            # lidar -> cam = lidar->imu * imu->cam
+            Rcl: [ -0.00797997, -0.9999491,   0.00617319,
+                    0.43513203, -0.00903065, -0.90032137,
+                    0.90033129, -0.00449838,  0.43518195 ]
+            Pcl: [ -0.00361111, -0.07668039, -0.01027059 ]
+
+        time_offset:
+            imu_time_offset: 0.0
+            img_time_offset: 0.0
+            exposure_time_init: 0.0
+
+        preprocess:
+            hilti_en: false
+            point_filter_num: 1
+            filter_size_surf: 0.1 # 0.2
+            lidar_type: 1
+            scan_line: 6
+            blind: 0.6 # 0.1 0.3 0.6
+
+        vio:
+            camera_config: "/home/will/code/test_ws/src/FAST-LIVO2/config/camera_pinhole.yaml"
+            max_iterations: 5
+            outlier_threshold: 500.
+            img_point_cov: 100.
+            patch_size: 8
+            patch_pyrimid_level: 4
+            normal_en: true
+            raycast_en: false
+            inverse_composition_en: false
+            exposure_estimate_en: true
+            inv_expo_cov: 0.1
+
+        imu:
+            imu_int_frame: 30
+            acc_cov: 0.5 # 0.1
+            gyr_cov: 0.3
+            b_acc_cov: 0.0001 # 0.1
+            b_gyr_cov: 0.0001 # 0.1
+
+        lio:
+            max_iterations: 5
+            dept_err: 0.02
+            beam_err: 0.05
+            min_eigen_value: 0.0025 # 0.0025
+            # voxel_size: 0.4
+            voxel_size: 2.0
+            max_layer: 2
+            max_points_num: 50
+            layer_init_num: [5, 5, 5, 5, 5]
+
+        local_map:
+            map_sliding_en: true
+            half_map_size: 100
+            sliding_thresh: 8.
+
+        uav:
+            imu_rate_odom: false
+            gravity_align_en: true
+
+        publish:
+            dense_map_en: true
+            pub_effect_point_en: false 
+            pub_plane_en: false
+            pub_scan_num: 1
+            blind_rgb_points: 0.0
+
+        evo:
+            seq_name: "2012-01-08"
+            pose_output_en: false
+
+        pcd_save:
+            pcd_save_en: false
+            type: 0 # 0: World Frame, 1: Body Frame;
+            colmap_output_en: false # need to set interval = -1
+            filter_size_pcd: 0.15
+            interval: -1
+            # how many LiDAR frames saved in each pcd file;
+            # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+        image_save:
+            img_save_en: false
+            interval: 1
+
+        lru_config:
+            lru_size: 100000
+
+        backend:
+            keyframe_add_dist_threshold: 1.
+            # keyframe_add_dist_threshold: 2.5
+            keyframe_add_angle_threshold: 0.2
+            recontruct_kdtree: true
+            ikdtree_reconstruct_keyframe_num: 10
+            ikdtree_reconstruct_downsamp_size: 0.1
+
+            # for add GNSS factor
+            lla: [31.4200590, 120.6394099, 14.790]
+            numsv: 20
+            rtk_age: 30.
+            gpsCovThreshold: [0.05, 0.05, 0.1, 0.05, 0.05, 0.05]
+            pose_cov_threshold: 0.
+            gnss_weight: [1.0, 1.0, 0.1]
+            gnssValidInterval: 0.1
+            useGpsElevation: true
+
+            # for loop closure
+            loop_closure_interval: 300
+            loop_closure_enable_flag: true
+            loop_keyframe_num_thld: 50
+            loop_closure_search_radius: 10.
+            loop_closure_keyframe_interval: 100
+            keyframe_search_num: 20
+            loop_closure_fitness_use_adaptability: true
+            loop_closure_fitness_score_thld_min: 0.1
+            loop_closure_fitness_score_thld_max: 0.3
+            icp_downsamp_size: 0.1
+            manually_loop_vaild_period: [0., 1.]
+            odom_loop_vaild_period: [0., 100000.]
+            scancontext_loop_vaild_period: [0., 1.]
+
+            # lidar -> gnss
+            extrinsic_gnss_T: [ 0., 0., 0. ]
+            extrinsic_gnss_R: [ 1., 0., 0., 
+                                0., 1., 0., 
+                                0., 0., 1. ]
+
+        scan_context:
+            lidar_height: 2.183
+            sc_dist_thres: 0.13
+
+        publish:
+            showOptimizedPose: true
+            globalMapVisualizationSearchRadius: 1000. 
+            globalMapVisualizationPoseDensity: 3. 
+            globalMapVisualizationLeafSize: 0.2
+            path_en:  true
+            scan_publish_en:  true       # false: close all the point cloud output
+            dense_publish_en: false       # false: low down the points number in a global-frame point clouds scan.
+
+        official:
+            save_globalmap_en: true
+            save_resolution: 0.2
+            save_keyframe_en: false
+            save_keyframe_descriptor_en: false
+            # map_path: "/home/will/data/test_mapping/mapping1"
+
+            save_pgm: false
+            pgm_resolution: 0.05
+            min_z: 0.0
+            max_z: 1.0

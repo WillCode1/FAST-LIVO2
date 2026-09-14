@@ -30,7 +30,7 @@ fast_livo2:
             filter_size_surf: 0.1 # 0.2
             lidar_type: 1
             scan_line: 6
-            blind: 0.6 # 0.1 0.3
+            blind: 0.4 # 0.1 0.3 0.6
 
         vio:
             camera_config: "/home/will/code/test_ws/src/FAST-LIVO2/config/camera_pinhole.yaml"
@@ -97,7 +97,7 @@ fast_livo2:
             interval: 1
 
         lru_config:
-            lru_size: 30000
+            lru_size: 100000
 
         backend:
             keyframe_add_dist_threshold: 1.

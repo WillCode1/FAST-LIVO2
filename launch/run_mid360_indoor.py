@@ -9,7 +9,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     pkg_dir = get_package_share_directory('fast_livo')
 
-    default_param_config = os.path.join(pkg_dir, 'config', 'ros2_param.yaml')
+    default_param_config = os.path.join(pkg_dir, 'config', 'ros2_mid360_indoor.yaml')
     default_rviz_config = os.path.join(pkg_dir, 'rviz_cfg', 'mapping_ros2.rviz')
     default_camera_config = os.path.join(pkg_dir, 'config', 'camera_pinhole.yaml')
 
