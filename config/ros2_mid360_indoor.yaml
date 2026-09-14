@@ -30,7 +30,7 @@ fast_livo2:
             filter_size_surf: 0.1 # 0.2
             lidar_type: 1
             scan_line: 6
-            blind: 0.4 # 0.1 0.3 0.6
+            blind: 0.3 # 0.1 0.3 0.6
 
         vio:
             camera_config: "/home/will/code/test_ws/src/FAST-LIVO2/config/camera_pinhole.yaml"
@@ -58,8 +58,8 @@ fast_livo2:
             beam_err: 0.05
             min_eigen_value: 0.0025 # 0.0025
             voxel_size: 0.4
-            # voxel_size: 2.0
-            max_layer: 2
+            # voxel_size: 1.0
+            max_layer: 3
             max_points_num: 50
             layer_init_num: [5, 5, 5, 5, 5]
 

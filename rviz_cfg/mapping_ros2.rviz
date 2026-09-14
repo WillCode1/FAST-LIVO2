@@ -5,7 +5,10 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Front1
-        - /TF1/Tree1
+        - /TF1
+        - /TF1/Frames1
+        - /TF1/Frames1/aft_mapped1
+        - /TF1/Frames1/aft_mapped1/Position1
       Splitter Ratio: 0.5
     Tree Height: 544
   - Class: rviz_common/Selection
@@ -129,8 +132,8 @@ Visualization Manager:
         - Alpha: 1
           Autocompute Intensity Bounds: true
           Autocompute Value Bounds:
-            Max Value: 7.664743900299072
-            Min Value: -3.367576837539673
+            Max Value: 49.86888885498047
+            Min Value: -1.794108271598816
             Value: true
           Axis: Z
           Channel Name: intensity
@@ -241,13 +244,19 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
+        aft_mapped:
+          Value: true
+        camera_init:
+          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        {}
+        camera_init:
+          aft_mapped:
+            {}
       Update Interval: 0
       Value: true
   Enabled: true
