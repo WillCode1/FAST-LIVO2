@@ -232,7 +232,7 @@ class VoxelMapManager {
 
   int degrade_cnt_ = 0;
   int degrade_bound_ = 10;
-  double degrade_eigval_ = 200;
+  double degrade_eigval_ = 150;
   int effct_feat_num_;
   std::vector<pointWithVar> pv_list_;
 
