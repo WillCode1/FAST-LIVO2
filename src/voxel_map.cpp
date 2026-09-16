@@ -532,7 +532,7 @@ bool VoxelMapManager::StateEstimation(StatesGroup &state_propagat, const PointCl
   else
   {
     degrade_cnt_++;
-    printf("eva: %lf\n", evalue[0]);
+    printf("lidar eva: %lf\n", evalue[0]);
   }
 
   if (degrade_cnt_ > degrade_bound_)

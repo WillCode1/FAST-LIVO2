@@ -194,58 +194,6 @@ public:
         fclose(file_pose_optimized_imu);
     }
 
-#ifdef MAP_STITCH
-    void save_factor_graph()
-    {
-        if (map_path.compare("") == 0)
-        {
-            LOG_WARN("please set map_path!");
-            return;
-        }
-
-        FILE *ofs = fopen((map_path + "/factor_graph.fg").c_str(), "w");
-        fprintf(ofs, "VERTEX_SIZE: %ld\n", backend->init_values.size());
-        for (auto &value : backend->init_values)
-        {
-            fprintf(ofs, "VERTEX %d: %lf %lf %lf %lf %lf %lf\n",
-                    value.first, value.second.x(), value.second.y(), value.second.z(),
-                    value.second.rotation().roll(), value.second.rotation().pitch(), value.second.rotation().yaw());
-        }
-        fprintf(ofs, "EDGE_SIZE: %ld\n", backend->gtsam_factors.size());
-        while (!backend->gtsam_factors.empty())
-        {
-            auto &factor = backend->gtsam_factors.front();
-            if (factor.factor_type == GtsamFactor::Prior)
-            {
-                fprintf(ofs, "EDGE %d: %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
-                        factor.factor_type, factor.index_to, factor.value.x(), factor.value.y(), factor.value.z(),
-                        factor.value.rotation().roll(), factor.value.rotation().pitch(), factor.value.rotation().yaw(),
-                        std::sqrt(factor.noise(0)), std::sqrt(factor.noise(1)), std::sqrt(factor.noise(2)),
-                        std::sqrt(factor.noise(3)), std::sqrt(factor.noise(4)), std::sqrt(factor.noise(5)));
-            }
-            else if (factor.factor_type == GtsamFactor::Between || factor.factor_type == GtsamFactor::Loop)
-            {
-                fprintf(ofs, "EDGE %d: %d %d %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
-                        factor.factor_type, factor.index_from, factor.index_to, 
-                        factor.value.x(), factor.value.y(), factor.value.z(),
-                        factor.value.rotation().roll(), factor.value.rotation().pitch(), factor.value.rotation().yaw(),
-                        std::sqrt(factor.noise(0)), std::sqrt(factor.noise(1)), std::sqrt(factor.noise(2)),
-                        std::sqrt(factor.noise(3)), std::sqrt(factor.noise(4)), std::sqrt(factor.noise(5)));
-            }
-            else if (factor.factor_type == GtsamFactor::Gps)
-            {
-                fprintf(ofs, "EDGE %d: %d %lf %lf %lf %lf %lf %lf\n",
-                        factor.factor_type, factor.index_to, 
-                        factor.value.x(), factor.value.y(), factor.value.z(),
-                        std::sqrt(factor.noise(0)), std::sqrt(factor.noise(1)), std::sqrt(factor.noise(2)));
-            }
-            backend->gtsam_factors.pop();
-        }
-
-        fclose(ofs);
-    }
-#endif
-
     PointCloudType::Ptr get_submap_visual(float globalMapVisualizationSearchRadius, float globalMapVisualizationPoseDensity, float globalMapVisualizationLeafSize, bool showOptimizedPose = true)
     {
         pcl::PointCloud<PointXYZIRPYT>::Ptr keyframe_pose(new pcl::PointCloud<PointXYZIRPYT>());

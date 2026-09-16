@@ -17,46 +17,6 @@
 #include "backend/Header.h"
 #include "GnssProcessor.hpp"
 
-// #define MAP_STITCH
-
-#ifdef MAP_STITCH
-struct GtsamFactor
-{
-    enum FactorType
-    {
-        Prior,
-        Between,
-        Loop,
-        Gps
-    };
-
-    bool operator<(const GtsamFactor &y) const
-    {
-        if (y.factor_type == Prior)
-            return true;
-        else if (factor_type == Prior)
-            return false;
-        else if (factor_type == Loop && y.factor_type == Loop)
-            if (index_from == y.index_from)
-                return index_to > y.index_to;
-            else
-                return index_from > y.index_from;
-
-        auto value_x = std::max(index_from, index_to);
-        auto value_y = std::max(y.index_from, y.index_to);
-        if (value_x != value_y)
-            return value_x > value_y;
-        else
-            return factor_type > y.factor_type;
-    }
-
-    FactorType factor_type;
-    int index_from;
-    int index_to;
-    gtsam::Pose3 value;
-    gtsam::Vector noise;
-};
-#endif
 
 class FactorGraphOptimization
 {
@@ -119,17 +79,6 @@ private:
         {
             gtsam_graph.add(gtsam::PriorFactor<gtsam::Pose3>(0, pclPointTogtsamPose3(this_pose6d), prior_noise));
             init_estimate.insert(0, pclPointTogtsamPose3(this_pose6d));
-
-#ifdef MAP_STITCH
-            GtsamFactor factor;
-            factor.factor_type = GtsamFactor::Prior;
-            factor.index_from = 0;
-            factor.index_to = 0;
-            factor.value = pclPointTogtsamPose3(this_pose6d);
-            factor.noise = prior_noise->covariance().diagonal();
-            gtsam_factors.emplace(factor);
-            init_values[0] = factor.value;
-#endif
         }
         else
         {
@@ -137,17 +86,6 @@ private:
             gtsam::Pose3 poseTo = pclPointTogtsamPose3(this_pose6d);
             gtsam_graph.add(gtsam::BetweenFactor<gtsam::Pose3>(keyframe_pose6d_optimized->size() - 1, keyframe_pose6d_optimized->size(), poseFrom.between(poseTo), odometry_noise));
             init_estimate.insert(keyframe_pose6d_optimized->size(), poseTo);
-
-#ifdef MAP_STITCH
-            GtsamFactor factor;
-            factor.factor_type = GtsamFactor::Between;
-            factor.index_from = keyframe_pose6d_optimized->size() - 1;
-            factor.index_to = keyframe_pose6d_optimized->size();
-            factor.value = poseFrom.between(poseTo);
-            factor.noise = odometry_noise->covariance().diagonal();
-            gtsam_factors.emplace(factor);
-            init_values[keyframe_pose6d_optimized->size()] = poseTo;
-#endif
         }
     }
 
@@ -172,17 +110,6 @@ private:
             LOG_WARN_COND(true, "dartion_time = %.2f.GPS Factor Added, current_gnss_interval = %.3f sec, noise = (%.3f, %.3f, %.3f).",
                           thisGPS.timestamp - keyframe_pose6d_optimized->front().time, thisGPS.current_gnss_interval, Vector3(0), Vector3(1), Vector3(2));
             // LOG_INFO("fix_lidar_pos = (%.3f, %.3f, %.3f).", thisGPS.lidar_pos_fix(0), thisGPS.lidar_pos_fix(1), thisGPS.lidar_pos_fix(2));
-
-#ifdef MAP_STITCH
-            GtsamFactor factor;
-            factor.factor_type = GtsamFactor::Gps;
-            factor.index_from = keyframe_pose6d_optimized->size();
-            factor.index_to = keyframe_pose6d_optimized->size();
-            factor.value = gtsam::Pose3(gtsam::Rot3::RzRyRx(0, 0, 0),
-                                        gtsam::Point3(thisGPS.lidar_pos_fix(0), thisGPS.lidar_pos_fix(1), thisGPS.lidar_pos_fix(2)));
-            factor.noise = gnss_noise->covariance().diagonal();
-            gtsam_factors.emplace(factor);
-#endif
         }
     }
 
@@ -198,16 +125,6 @@ private:
             const gtsam::Pose3& poseBetween = loop_constraint.loop_pose_correct[i];
             gtsam::noiseModel::Diagonal::shared_ptr noiseBetween = loop_constraint.loop_noise[i];
             gtsam_graph.add(gtsam::BetweenFactor<gtsam::Pose3>(indexFrom, indexTo, poseBetween, noiseBetween));
-
-#ifdef MAP_STITCH
-            GtsamFactor factor;
-            factor.factor_type = GtsamFactor::Loop;
-            factor.index_from = indexFrom;
-            factor.index_to = indexTo;
-            factor.value = poseBetween;
-            factor.noise = noiseBetween->covariance().diagonal();
-            gtsam_factors.emplace(factor);
-#endif
         }
 
         loop_constraint.clear();
@@ -327,9 +244,4 @@ public:
     bool recontruct_kdtree = true;
     int ikdtree_reconstruct_keyframe_num = 10;
     float ikdtree_reconstruct_downsamp_size = 0.1;
-
-#ifdef MAP_STITCH
-    std::map<int, gtsam::Pose3> init_values;
-    std::queue<GtsamFactor> gtsam_factors;
-#endif
 };
