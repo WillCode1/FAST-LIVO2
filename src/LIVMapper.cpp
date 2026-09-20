@@ -16,6 +16,7 @@ which is included as part of this source code package.
 #include <unistd.h>
 #include <glog/logging.h>
 #include <yaml-cpp/yaml.h>
+#include "std_msgs/msg/string.hpp"
 
 FILE *location_log = nullptr;
 bool showOptimizedPose = true;
@@ -28,6 +29,7 @@ bool save_pgm = false;
 double pgm_resolution;
 float min_z, max_z;
 Backend backend;
+rclcpp::Subscription<std_msgs::msg::String>::SharedPtr key_sub;
 
 bool flg_exit = false;
 void SigHandle(int sig)
@@ -42,6 +44,47 @@ void SigHandle(int sig)
   LOG_WARN("catch sig %d", sig);
   flg_exit = true;
 }
+
+void keyCallback(const std_msgs::msg::String::ConstPtr &msg)
+{
+  if (msg->data.empty())
+    return;
+
+  char key = msg->data[0];
+
+  switch (key)
+  {
+  case 'z':
+    if (!backend.backend->z_axis_constraint_enable)
+    {
+      backend.backend->z_axis_constraint_enable = true;
+      backend.backend->update_height = true;
+      LOG_WARN("backend.backend->z_axis_constraint_enable = true");
+    }
+    else
+    {
+      backend.backend->z_axis_constraint_enable = false;
+      backend.backend->update_height = true;
+      LOG_WARN("backend.backend->z_axis_constraint_enable = false");
+    }
+    break;
+  case 's':
+    if (!backend.backend->update_height)
+    {
+      backend.backend->update_height = true;
+      LOG_WARN("backend.backend->update_height = true");
+    }
+    else
+    {
+      backend.backend->update_height = false;
+      LOG_WARN("backend.backend->update_height = false");
+    }
+    break;
+  default:
+    break;
+  }
+}
+
 #ifdef ROS1
 ros::Publisher pubGlobalmap;
 
@@ -658,6 +701,7 @@ void LIVMapper::InitializeSubscribersAndPublishers(
     sub_pcl1_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic_, 1000, std::bind(&LIVMapper::LivoxCbk, this, std::placeholders::_1));
   else
     sub_pcl2_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic_, 1000, std::bind(&LIVMapper::PointCloud2Cbk, this, std::placeholders::_1));
+  // auto qos = rclcpp::QoS(rclcpp::KeepLast(200000)).best_effort();
   sub_imu_ = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic_, 200000, std::bind(&LIVMapper::ImuCbk, this, std::placeholders::_1));
   sub_img_ = node->create_subscription<sensor_msgs::msg::Image>(img_topic_, 2000, std::bind(&LIVMapper::ImageCbk, this, std::placeholders::_1));
   tf_broadcaster = std::make_shared<tf2_ros::TransformBroadcaster>(*node);
@@ -682,6 +726,7 @@ void LIVMapper::InitializeSubscribersAndPublishers(
   voxel_map_manager_->voxel_map_pub_ = node->create_publisher<visualization_msgs::msg::MarkerArray>("/planes", 10000);
   pubGlobalmap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/map_global", 1);
   visualizeMapThread = std::thread(&visualize_globalmap_thread, pubGlobalmap);
+  key_sub = node->create_subscription<std_msgs::msg::String>("/key_input", 10, keyCallback);
 }
 #endif
 
@@ -823,13 +868,13 @@ void LIVMapper::HandleLIO() {
 
   double t1 = omp_get_wtime();
   // 位姿估计
-  if (!voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_))
-    LOG_WARN("Maybe Lidar degradation!");
-
+    if (!voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_))
+  LOG_WARN("Maybe Lidar degradation!");
+  
   state_ = voxel_map_manager_->state_;
 
   double t2 = omp_get_wtime();
-
+  
   if (imu_prop_enable_) {
     ekf_finish_once_ = true;
     latest_ekf_state_ = state_;
@@ -875,7 +920,7 @@ void LIVMapper::HandleLIO() {
 
   // 更新VoxelMap
   voxel_map_manager_->UpdateVoxelMapLRU(voxel_map_manager_->pv_list_);
-#ifdef PRINT_TIME
+  #ifdef PRINT_TIME
   std::cout << "[ LIO ] Update Voxel Map" << std::endl;
 #endif
   pv_list_ = voxel_map_manager_->pv_list_;
@@ -1052,6 +1097,8 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
       PointXYZIRPYT this_pose6d;
       PointCloudType::Ptr submap_fix(new PointCloudType());
       state2pose(this_pose6d, lidar_measures_.measures.back().lio_time, state_, ext_r_, ext_t_);
+      if (backend.backend->update_height)
+        backend.backend->cur_height = this_pose6d.z;
       backend.run(this_pose6d, feats_undistort_, submap_fix);
       if (submap_fix->size())
       {

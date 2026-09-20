@@ -232,7 +232,10 @@ else(ROS_EDITION STREQUAL "ROS2")
   ament_target_dependencies(laser_mapping rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
   ament_target_dependencies(fastlivo_mapping rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
 
-  install(TARGETS fastlivo_mapping
+  add_executable(status_switch src/status_switch.cpp)
+  ament_target_dependencies(status_switch rclcpp std_msgs)
+
+  install(TARGETS fastlivo_mapping status_switch
     DESTINATION lib/${PROJECT_NAME}
   )
   install(DIRECTORY launch config rviz_cfg

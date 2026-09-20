@@ -132,6 +132,12 @@ fast_livo2:
             odom_loop_vaild_period: [0., 100000.]
             scancontext_loop_vaild_period: [0., 1.]
 
+            # z axis constraint
+            gtsam_ground_constraint_enable: false
+            update_height: false
+            add_height_factor_threshold: 0.1
+            loop_closure_height_thld: 20.
+
             # lidar -> gnss
             extrinsic_gnss_T: [ 0., 0., 0. ]
             extrinsic_gnss_R: [ 1., 0., 0., 
