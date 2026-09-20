@@ -489,6 +489,11 @@ void LIVMapper::InitBackend(bool &save_globalmap_en)
   ros::param::param("backend/odom_loop_vaild_period", backend.loopClosure->loop_vaild_period["odom"], vector<double>());
   ros::param::param("backend/scancontext_loop_vaild_period", backend.loopClosure->loop_vaild_period["scancontext"], vector<double>());
 
+  ros::param::param("backend/gtsam_ground_constraint_enable", backend.backend->z_axis_constraint_enable, false);
+  ros::param::param("backend/update_height", backend.backend->update_height, true);
+  ros::param::param("backend/add_height_factor_threshold", backend.backend->add_height_factor_threshold, 0.1);
+  ros::param::param("backend/loop_closure_height_thld", backend.loopClosure->loop_closure_height_thld, 20.f);
+
   ros::param::param("official/save_globalmap_en", save_globalmap_en, true);
   ros::param::param("official/save_keyframe_en", backend.save_keyframe_en, true);
   ros::param::param("official/save_keyframe_descriptor_en", backend.save_keyframe_descriptor_en, true);
@@ -589,6 +594,15 @@ void LIVMapper::InitBackend(rclcpp::Node::SharedPtr &node, bool &save_globalmap_
   node->get_parameter("backend.manually_loop_vaild_period", backend.loopClosure->loop_vaild_period["manually"]);
   node->get_parameter("backend.odom_loop_vaild_period", backend.loopClosure->loop_vaild_period["odom"]);
   node->get_parameter("backend.scancontext_loop_vaild_period", backend.loopClosure->loop_vaild_period["scancontext"]);
+
+  node->declare_parameter("backend.gtsam_ground_constraint_enable", false);
+  node->declare_parameter("backend.update_height", true);
+  node->declare_parameter("backend.add_height_factor_threshold", 0.1);
+  node->declare_parameter("backend.loop_closure_height_thld", 20.f);
+  node->get_parameter("backend.gtsam_ground_constraint_enable", backend.backend->z_axis_constraint_enable);
+  node->get_parameter("backend.update_height", backend.backend->update_height);
+  node->get_parameter("backend.add_height_factor_threshold", backend.backend->add_height_factor_threshold);
+  node->get_parameter("backend.loop_closure_height_thld", backend.loopClosure->loop_closure_height_thld);
 
   node->get_parameter("official.save_globalmap_en", save_globalmap_en);
   node->get_parameter("official.save_pgm", save_pgm);
@@ -868,8 +882,8 @@ void LIVMapper::HandleLIO() {
 
   double t1 = omp_get_wtime();
   // 位姿估计
-    if (!voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_))
-  LOG_WARN("Maybe Lidar degradation!");
+  if (!voxel_map_manager_->StateEstimation(state_propagat_, feats_down_body_))
+    LOG_WARN("Maybe Lidar degradation!");
   
   state_ = voxel_map_manager_->state_;
 
