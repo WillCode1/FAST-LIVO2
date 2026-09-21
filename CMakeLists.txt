@@ -86,6 +86,13 @@ include_directories(${GLOG_INCLUDE_DIR})
 find_package(Gflags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
+set(BUILD_PANGOLIN OFF)
+if (BUILD_PANGOLIN)
+  add_definitions(-DUSE_PANGOLIN)
+  find_package(Pangolin REQUIRED)
+  include_directories(${Pangolin_INCLUDE_DIRS})
+endif()
+
 set(GTSAM_DIR "/home/will/thirdparty/gtsam-4.2.0-native/build") 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
@@ -225,6 +232,9 @@ else(ROS_EDITION STREQUAL "ROS2")
     gtsam
     ${OpenMP_CXX_LIBRARIES}
   )
+  if (BUILD_PANGOLIN)
+    target_link_libraries(fastlivo_mapping ${Pangolin_LIBRARIES})
+  endif()
   ament_target_dependencies(vio rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
   ament_target_dependencies(lio rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
   ament_target_dependencies(pre rclcpp rclpy geometry_msgs nav_msgs sensor_msgs visualization_msgs cv_bridge image_transport pcl_ros pcl_conversions tf2_ros livox_ros_driver2)
