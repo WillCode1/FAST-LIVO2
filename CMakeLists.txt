@@ -86,7 +86,6 @@ include_directories(${GLOG_INCLUDE_DIR})
 find_package(Gflags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
-set(GTSAM_DIR "/home/will/thirdparty/gtsam-4.2.0-native/build") 
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
