@@ -2,6 +2,7 @@
 #include <pcl/registration/gicp.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/visualization/pcl_visualizer.h>
+#include <GL/glew.h>
 #include <pangolin/pangolin.h>
 #include "../Header.h"
 
