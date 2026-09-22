@@ -649,3 +649,63 @@ void VoxelMapManager::RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body)
 
   BuildVoxelMapLRU(cloud_body);
 }
+
+void VoxelMapManager::RebuildVoxelMapLRU(const std::vector<PointCloudXYZIN::Ptr> &keyframe_scan, std::vector<StatesGroup> &key_states)
+{
+  // // reset
+  // for (auto &pair : vm_map_)
+  //   delete pair.second->second;
+  // vm_map_.clear();
+  // vm_data_.clear();
+
+  float voxel_size = config_setting_.max_voxel_size_;
+  float planer_threshold = config_setting_.planner_threshold_;
+  int max_layer = config_setting_.max_layer_;
+  int max_points_num = config_setting_.max_points_num_;
+  std::vector<int> layer_init_num = config_setting_.layer_init_num_;
+
+  for (auto i = 0; i < keyframe_scan.size(); ++i)
+  {
+    std::vector<pointWithVar> input_points;
+    VarInit(extR_, extT_, *keyframe_scan[i], input_points, config_setting_.dept_err_, config_setting_.beam_err_);
+    Var2World(input_points, key_states[i]);
+
+    uint plsize = input_points.size();
+    for (uint i = 0; i < plsize; i++)
+    {
+      const pointWithVar p_v = input_points[i];
+      VOXEL_LOCATION position(p_v.point_w, voxel_size);
+      auto iter = vm_map_.find(position);
+      if (iter != vm_map_.end())
+      {
+        vm_map_[position]->second->UpdateOctoTree(p_v);
+        // 更新的放至最前
+        vm_data_.splice(vm_data_.begin(), vm_data_, iter->second);
+        iter->second = vm_data_.begin();
+      }
+      else
+      {
+        VoxelOctoTree *octo_tree = new VoxelOctoTree(
+            max_layer, 0, layer_init_num[0], max_points_num, planer_threshold);
+        vm_data_.push_front({position, {octo_tree}});
+        vm_map_.insert({position, vm_data_.begin()});
+
+        // LRU
+        if (vm_data_.size() >= lru_size_)
+        {
+          // 删除一个尾部的数据
+          vm_map_.erase(vm_data_.back().first);
+          delete vm_data_.back().second;
+          vm_data_.pop_back();
+        }
+
+        octo_tree->quater_length_ = voxel_size / 4;
+        octo_tree->voxel_center_[0] = (0.5 + position.x) * voxel_size;
+        octo_tree->voxel_center_[1] = (0.5 + position.y) * voxel_size;
+        octo_tree->voxel_center_[2] = (0.5 + position.z) * voxel_size;
+        octo_tree->layer_init_num_ = layer_init_num;
+        octo_tree->UpdateOctoTree(p_v);
+      }
+    }
+  }
+}

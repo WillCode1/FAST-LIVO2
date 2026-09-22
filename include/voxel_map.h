@@ -246,6 +246,8 @@ class VoxelMapManager {
 
   void RebuildVoxelMapLRU(const PointCloudXYZIN::Ptr &cloud_body);
 
+  void RebuildVoxelMapLRU(const std::vector<PointCloudXYZIN::Ptr> &keyframe_scan, std::vector<StatesGroup> &key_states);
+
   // void UpdateVoxelMap(const std::vector<pointWithVar> &input_points);
 
   void UpdateVoxelMapLRU(std::vector<pointWithVar> &input_points);

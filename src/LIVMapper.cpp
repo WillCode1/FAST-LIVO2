@@ -934,7 +934,7 @@ void LIVMapper::HandleLIO() {
 
   // 更新VoxelMap
   voxel_map_manager_->UpdateVoxelMapLRU(voxel_map_manager_->pv_list_);
-  #ifdef PRINT_TIME
+#ifdef PRINT_TIME
   std::cout << "[ LIO ] Update Voxel Map" << std::endl;
 #endif
   pv_list_ = voxel_map_manager_->pv_list_;
@@ -1123,6 +1123,23 @@ void LIVMapper::Run(rclcpp::Node::SharedPtr &node) {
         voxel_map_manager_->state_ = state_;
         voxel_map_manager_->RebuildVoxelMapLRU(feats_down_body_);
         // voxel_map_manager_->UpdateVoxelMapLRU(submap_fix);
+        if (true)
+        {
+          std::vector<int> indices;
+          std::vector<float> distances;
+          backend.loopClosure->kdtree_history_keyframe_pose->setInputCloud(backend.backend->keyframe_pose6d_optimized);
+          backend.loopClosure->kdtree_history_keyframe_pose->radiusSearch(this_pose6d, 10, indices, distances);
+          std::vector<StatesGroup> key_states;
+          std::vector<PointCloudType::Ptr> keyframe_scan;
+          key_states.resize(indices.size());
+          for (auto i = 1; i < indices.size(); ++i)
+          {
+            pose2state(backend.backend->keyframe_pose6d_optimized->points[indices[i]], key_states[i], ext_r_, ext_t_);
+            keyframe_scan.push_back(backend.keyframe_scan->at(indices[i]));
+            // printf("%lu, %lu\n", indices[i], backend.keyframe_scan->size());
+          }
+          voxel_map_manager_->RebuildVoxelMapLRU(keyframe_scan, key_states);
+        }
         vio_manager_->ResetVioMap();
       }
     }
