@@ -210,6 +210,9 @@ private:
     {
         if (recontruct_kdtree)
         {
+            submap_fix->resize(1);
+            return;
+
             int key_poses_num = keyframe_pose6d_optimized->size();
             for (int i = std::max(0, key_poses_num - ikdtree_reconstruct_keyframe_num); i < key_poses_num; ++i)
             {
