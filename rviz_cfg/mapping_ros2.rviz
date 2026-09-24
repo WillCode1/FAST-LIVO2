@@ -7,8 +7,6 @@ Panels:
         - /Front1
         - /TF1
         - /TF1/Frames1
-        - /TF1/Frames1/aft_mapped1
-        - /TF1/Frames1/aft_mapped1/Position1
       Splitter Ratio: 0.5
     Tree Height: 544
   - Class: rviz_common/Selection
@@ -150,7 +148,7 @@ Visualization Manager:
           Name: global_map
           Position Transformer: XYZ
           Selectable: true
-          Size (Pixels): 2
+          Size (Pixels): 1
           Size (m): 0.009999999776482582
           Style: Points
           Topic:
@@ -244,19 +242,13 @@ Visualization Manager:
       Frame Timeout: 15
       Frames:
         All Enabled: true
-        aft_mapped:
-          Value: true
-        camera_init:
-          Value: true
       Marker Scale: 1
       Name: TF
       Show Arrows: true
       Show Axes: true
       Show Names: false
       Tree:
-        camera_init:
-          aft_mapped:
-            {}
+        {}
       Update Interval: 0
       Value: true
   Enabled: true
