@@ -59,7 +59,7 @@ fast_livo2:
             min_eigen_value: 0.0025 # 0.0025
             voxel_size: 0.4
             # voxel_size: 1.0
-            max_layer: 3
+            max_layer: 2
             max_points_num: 50
             layer_init_num: [5, 5, 5, 5, 5]
 
